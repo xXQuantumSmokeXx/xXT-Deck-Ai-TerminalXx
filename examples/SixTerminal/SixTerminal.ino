@@ -72,8 +72,8 @@
 
 // ── Colors ────────────────────────────────────────────────────────────────────
 #define COL_BG       TFT_BLACK
-#define COL_YOU      0x04FF   // azure blue  RGB(0, 158, 255)
-#define COL_AI       0x07EC   // spring green RGB(0, 252, 99)
+#define COL_YOU      0x07FF   // cyan
+#define COL_AI       0x07FF   // cyan
 #define COL_SYS      0x7BEF   // light grey
 #define COL_INPUT_BG 0x1082   // very dark grey
 #define COL_INPUT    TFT_WHITE
@@ -548,7 +548,7 @@ void setup() {
     tft.setTextColor(COL_SYS, COL_BG);
     tft.drawCentreString("AI Chat for T-Deck", SCREEN_W / 2, 105, 1);
     tft.drawCentreString("github.com/xXQuantumSmokeXx", SCREEN_W / 2, 120, 1);
-    delay(1200);
+    delay(2500);
     tft.fillScreen(COL_BG);
 
     tft.drawFastHLine(0, INPUT_Y - 1, SCREEN_W, COL_SYS);
