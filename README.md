@@ -34,6 +34,8 @@ model: llama-3.1-8b-instant
 
 > **Important:** Save files as plain text with no extra `.txt` extension. In Windows Notepad use File → Save As → set "Save as type" to **All Files**.
 
+> **Security note:** `config.txt` and `wifi.txt` are **not** deleted automatically after being read — settings are saved to the device's internal memory (NVS). Once your device is configured and working, delete both files from the SD card to avoid leaving your API key and WiFi password sitting on it.
+
 ## Supported APIs
 
 | Provider | type | url | example model |
