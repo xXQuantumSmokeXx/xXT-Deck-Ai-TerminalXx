@@ -118,28 +118,33 @@ int    historyCount = 0;
 int    scrollOffset = 0;
 String inputBuf     = "";
 
-// ── Backlight ─────────────────────────────────────────────────────────────────
-uint8_t brightLevel = 16;
+// ── Backlight (PWM) ───────────────────────────────────────────────────────────
+#define BL_PWM_CHANNEL  0
+#define BL_PWM_FREQ     1000
+#define BL_PWM_BITS     8
+uint8_t brightLevel = 16;   // 1–16
 
-void setBrightness(uint8_t val) {
-    static uint8_t level = 0;
-    const  uint8_t steps = 16;
-    if (val == 0) { digitalWrite(BOARD_BL_PIN, 0); delay(3); level = 0; return; }
-    if (level == 0) { digitalWrite(BOARD_BL_PIN, 1); level = steps; delayMicroseconds(30); }
-    int num = (steps + (steps - val) - (steps - level)) % steps;
-    for (int i = 0; i < num; i++) { digitalWrite(BOARD_BL_PIN, 0); digitalWrite(BOARD_BL_PIN, 1); }
-    level = val;
+void initBrightness() {
+    ledcSetup(BL_PWM_CHANNEL, BL_PWM_FREQ, BL_PWM_BITS);
+    ledcAttachPin(BOARD_BL_PIN, BL_PWM_CHANNEL);
+    ledcWrite(BL_PWM_CHANNEL, 255);
+}
+
+void setBrightness(uint8_t level16) {
+    uint32_t duty = (uint32_t)level16 * 255 / 16;
+    ledcWrite(BL_PWM_CHANNEL, duty);
 }
 
 void brightnessUp() {
-    if (brightLevel < 16) { brightLevel += 2; if (brightLevel > 16) brightLevel = 16; }
+    if (brightLevel < 16) brightLevel += 2;
+    if (brightLevel > 16) brightLevel = 16;
     setBrightness(brightLevel);
     pushLine("Brightness: " + String(brightLevel) + "/16", COL_SYS);
     scrollToBottom();
 }
 
 void brightnessDown() {
-    if (brightLevel > 2) { brightLevel -= 2; }
+    if (brightLevel > 2) brightLevel -= 2;
     setBrightness(brightLevel);
     pushLine("Brightness: " + String(brightLevel) + "/16", COL_SYS);
     scrollToBottom();
@@ -290,7 +295,6 @@ bool loadWiFiFromSD(String &ssid, String &pass) {
     ssid = f.readStringUntil('\n'); ssid.trim();
     pass = f.readStringUntil('\n'); pass.trim();
     f.close();
-    SD.remove("/wifi.txt");
     SD.end();
     return ssid.length() > 0;
 }
@@ -300,8 +304,17 @@ bool loadConfigFromSD() {
     if (!SD.exists("/config.txt")) { SD.end(); return false; }
     File f = SD.open("/config.txt", FILE_READ);
     if (!f) { SD.end(); return false; }
+    bool first = true;
     while (f.available()) {
         String line = f.readStringUntil('\n');
+        // Strip UTF-8 BOM if present on first line
+        if (first && line.length() >= 3 &&
+            (uint8_t)line[0] == 0xEF &&
+            (uint8_t)line[1] == 0xBB &&
+            (uint8_t)line[2] == 0xBF) {
+            line = line.substring(3);
+        }
+        first = false;
         line.trim();
         int colon = line.indexOf(':');
         if (colon < 0) continue;
@@ -313,8 +326,6 @@ bool loadConfigFromSD() {
         if (k == "model") apiModel = v;
     }
     f.close();
-    SD.remove("/config.txt");
-    SD.end();
     if (apiType == "openai") {
         if (apiUrl.length()   == 0) apiUrl   = "https://api.openai.com/v1";
         if (apiModel.length() == 0) apiModel = "gpt-4o-mini";
@@ -322,6 +333,7 @@ bool loadConfigFromSD() {
         apiUrl = "https://api.anthropic.com";
         if (apiModel.length() == 0) apiModel = "claude-3-5-haiku-20241022";
     }
+    SD.end();
     return apiType.length() > 0 && apiKey.length() > 0;
 }
 
@@ -526,8 +538,7 @@ void setup() {
     tft.begin();
     tft.setRotation(1);
     tft.fillScreen(COL_BG);
-    pinMode(BOARD_BL_PIN, OUTPUT);
-    setBrightness(16);
+    initBrightness();
 
     // Splash
     tft.setTextFont(2);
