@@ -72,13 +72,13 @@
 
 // ── Colors ────────────────────────────────────────────────────────────────────
 #define COL_BG       TFT_BLACK
-#define COL_YOU      0x07FF   // cyan
-#define COL_AI       0x07FF   // cyan
-#define COL_SYS      0x7BEF   // light grey
-#define COL_INPUT_BG 0x1082   // very dark grey
-#define COL_INPUT    TFT_WHITE
-#define COL_PROMPT   0xFD20   // orange
-#define COL_SCROLL   0x4208   // dim grey
+#define COL_YOU      0x07FF   // bright cyan
+#define COL_AI       0x07FF   // bright cyan
+#define COL_SYS      0x03EF   // dim cyan
+#define COL_INPUT_BG 0x0104   // very dark cyan
+#define COL_INPUT    0x27FF   // light cyan
+#define COL_PROMPT   0x07FF   // bright cyan
+#define COL_SCROLL   0x01EF   // dark dim cyan
 
 // ── Conversation context ──────────────────────────────────────────────────────
 #define CTX_MAX_PAIRS   6

@@ -1,0 +1,22 @@
+﻿# PlatformIO build output
+.pio/
+.pioenvs/
+.piolibdeps/
+
+# Generated firmware images
+firmware.bin
+firmware*.bin
+*.elf
+*.map
+
+# Local SD-card contents / secrets
+sd_card/
+wifi.txt
+portal.txt
+config.txt
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+*.tmp
+*.log

@@ -1,93 +1,255 @@
-# MayDay Terminal — AI Chat for LILYGO T-Deck
+﻿# MayDay T-Deck AI Terminal
 
-AI chat terminal firmware for the LILYGO T-Deck (ESP32-S3). Supports OpenAI, Anthropic Claude, Groq, Ollama, and any OpenAI-compatible backend.
+MayDay T-Deck AI Terminal is a field-ready firmware build for the LILYGO T-Deck ESP32-S3. It started as an AI chat terminal and now includes a trackball-first launcher, AI persona chat, weather, solar conditions, crypto, field logging, wildfire and earthquake feeds, system diagnostics, and a WiFi screenshot endpoint.
 
 [![Support on Patreon](https://img.shields.io/badge/Support-Patreon-orange)](https://www.patreon.com/c/xXQuantumSmokeXx)
 
-![MayDay Terminal running on LILYGO T-Deck](images/AiTerminal.jpg)
+![MayDay T-Deck AI Terminal launcher](images/T-Deck-Ai-Terminal.png)
+
+## Current Highlights
+
+- Trackball-first UI for launcher navigation and screen scrolling
+- AI CHAT with SD-loaded personas and a simple HTTP backend
+- WEATHER using Open-Meteo with user-set latitude and longitude
+- SOLAR dashboard with NOAA/SWPC space weather, Kp history, 48h forecast, Bz, solar wind, flares, and CME data
+- LOG field notes stored on SD card with add, select, edit, and delete support
+- BTC crypto screen with Bitcoin/Ethereum price, 24h and 7d movement, mini charts, and Fear & Greed
+- FIRES feed from NASA EONET open wildfire events
+- QUAKES feed from USGS recent earthquake data
+- SYSTEM screen for device, WiFi, SD, heap, uptime, backend, and persona status
+- WiFi screenshot server at `/ss` for grabbing the live 320x240 screen as a BMP
+- Cyan terminal visual style tuned for the T-Deck display
 
 ## Hardware Required
 
-- [LILYGO T-Deck](https://www.lilygo.cc/products/t-deck) (ESP32-S3 version)
+- LILYGO T-Deck, ESP32-S3 version
+- microSD card for SD flashing, WiFi bootstrap files, personas, cache, and field logs
+- WiFi network for AI backend, weather, solar, crypto, fires, quakes, NTP, and screenshots
 
 ## Flashing
 
-1. Install [PlatformIO](https://platformio.org/)
-2. Clone this repo
-3. Run `pio run` to build
-4. Copy `.pio/build/T-Deck/firmware.bin` to your SD card
-5. Install via the [bmorcelli M5Launcher](https://github.com/bmorcelli/M5Stick-Launcher) or flash directly via USB
+1. Install PlatformIO.
+2. Clone this repo.
+3. Build the firmware:
 
-## SD Card Setup (Recommended)
+```sh
+pio run
+```
 
-Ready-to-use example files are in the [`config-examples/`](config-examples/) folder. Copy the one for your provider, rename it to `config.txt`, fill in your key, and drop it on the SD card root.
+4. Copy the generated firmware to the SD card root:
 
-Drop these files in the **root** of the SD card before first boot. Settings are saved to the device's internal memory (NVS) — the files are not deleted automatically, so remove them yourself once configured.
+```sh
+copy .pio\build\T-Deck\firmware.bin F:\firmware.bin
+```
+
+5. Flash with your T-Deck SD flashing workflow, such as M5Launcher, or flash directly over USB if preferred.
+
+The project also keeps a convenience copy at `firmware.bin` after local builds during development.
+
+## SD Card Setup
+
+The firmware reads a few simple text files from the SD card root or from known folders.
 
 ### `wifi.txt`
-```
+
+Place this on the SD card root before first boot:
+
+```txt
 YourWiFiSSID
 YourWiFiPassword
 ```
 
-### `config.txt`
+On boot, the firmware saves these credentials to NVS and removes `wifi.txt` from the SD card.
+
+### `portal.txt`
+
+Place your AI backend base URL on the first line:
+
+```txt
+https://your-server-url.ngrok-free.app
 ```
-type: openai
-key:  your-api-key-here
-url:  https://api.groq.com/openai/v1
-model: llama-3.1-8b-instant
+
+The firmware posts chat requests to:
+
+```txt
+{portal_url}/simple
 ```
 
-> **Important:** Save files as plain text with no extra `.txt` extension. In Windows Notepad use File → Save As → set "Save as type" to **All Files**.
+Expected request body:
 
-> **Security note:** `config.txt` and `wifi.txt` are **not** deleted automatically after being read — settings are saved to the device's internal memory (NVS). Once your device is configured and working, delete both files from the SD card to avoid leaving your API key and WiFi password sitting on it.
+```json
+{
+  "message": "hello",
+  "system": "persona system prompt",
+  "context": [
+    { "role": "user", "content": "previous message" },
+    { "role": "assistant", "content": "previous reply" }
+  ]
+}
+```
 
-## Supported APIs
+Expected response body:
 
-| Provider | type | url | example model |
-|----------|------|-----|---------------|
-| OpenAI | `openai` | `https://api.openai.com/v1` | `gpt-4o-mini` |
-| Groq (free) | `openai` | `https://api.groq.com/openai/v1` | `llama-3.1-8b-instant` |
-| Anthropic | `anthropic` | *(leave blank)* | `claude-3-haiku-20240307` |
-| Ollama (local) | `openai` | `http://your-ip:11434/v1` | `llama3` |
-| Any OpenAI-compatible | `openai` | your URL | your model |
+```json
+{
+  "response": "assistant reply text"
+}
+```
 
-## On-Device Commands
+You can also change the backend from AI CHAT by typing `seturl`.
 
-Type and press Enter:
+### `donki.txt` Optional
 
-| Command | Action |
-|---------|--------|
-| `setwifi` | Change WiFi credentials |
-| `setapi` | Reconfigure API settings |
-| `clear` | Clear chat and conversation history |
+SOLAR works out of the box with NASA's public `DEMO_KEY`, but that key has shared rate limits. If you want higher NASA DONKI limits, get a free API key from NASA and place it on the first line of `donki.txt` on the SD card root:
+
+```txt
+YOUR_NASA_DONKI_API_KEY
+```
+
+On boot, the firmware saves this to NVS as `donki_key`. The file is not removed automatically, so if the key is entered wrong you can fix `donki.txt` and reboot. After SOLAR is confirmed working, delete `donki.txt` manually if you do not want the key left on the SD card. If no key is configured, SOLAR continues using `DEMO_KEY`.
+
+
+### Personas
+
+Optional persona files live in:
+
+```txt
+/personas/p1.txt
+/personas/p2.txt
+/personas/p3.txt
+```
+
+Each file uses this format:
+
+```txt
+NAME
+Title or short role
+System prompt text goes here.
+It can span multiple lines.
+```
+
+Slot 1 has a built-in fallback if `/personas/p1.txt` is missing. Slots 2 and 3 load only when their files exist. In AI CHAT, type `persona` to switch loaded personas.
+
+### Field Logs
+
+The LOG screen writes entries to:
+
+```txt
+/logs/field.log
+```
+
+The firmware creates and updates this file from the device. Keep the SD card inserted if you want LOG to work.
 
 ## Controls
 
-- **Trackball UP** — scroll up through chat history
-- **Trackball DOWN** — scroll down
+### Launcher
 
-## First Boot
+- Trackball up/down/left/right: move between tiles
+- Enter: open selected tile
+- W/A/S/D or I/J/K/L: keyboard navigation
 
-1. Device reads `wifi.txt` and `config.txt` from SD card automatically
-2. If files are not found, you will be prompted to enter settings manually
-3. Settings are saved to device memory (NVS) — SD card files are not needed on subsequent boots
+### Module Screens
 
-## API Spec (for custom backends)
+- Trackball left/back gesture: return home
+- Q, Escape, Ctrl+Q, or Backspace: return home on most screens
+- R: refresh on data screens that support it
 
-**OpenAI-compatible:**
+### AI CHAT
+
+- Type a message and press Enter to send
+- Trackball up/down: scroll chat history
+- `seturl`: change AI backend URL
+- `setwifi`: change WiFi credentials
+- `persona`: switch loaded persona slot
+- `clear`: clear chat and context
+- `b+` / `b-`: adjust brightness
+
+### WEATHER
+
+- R: refresh weather
+- L: set latitude and longitude
+- Q: return home
+
+Weather uses Open-Meteo and stores `wx_lat` and `wx_lon` in NVS after you set them on device.
+
+### LOG
+
+- Type a note and press Enter to save
+- W/S or trackball up/down: select or scroll entries
+- E: edit selected entry
+- D: delete selected entry
+- Q: return home
+
+## Data Sources
+
+| Screen | Source |
+| --- | --- |
+| WEATHER | Open-Meteo forecast API |
+| SOLAR | NOAA/SWPC plus NASA DONKI for flares and CME data |
+| BTC | CoinGecko market data plus Alternative.me Fear & Greed |
+| FIRES | NASA EONET open wildfire events |
+| QUAKES | USGS earthquake feed |
+| SYSTEM | Local ESP32/T-Deck state |
+| LOG | Local SD card `/logs/field.log` |
+
+Network feeds use short local caching where implemented so screens still have useful last-known data after a failed refresh.
+
+## Screenshot Endpoint
+
+When WiFi is connected, the firmware starts a small web server on port 80.
+
+Open this in a browser on the same network:
+
+```txt
+http://<device-ip>/ss
 ```
-POST {url}/chat/completions
-Authorization: Bearer {key}
-{"model":"...","messages":[{"role":"user","content":"..."},...]}
-→ {"choices":[{"message":{"content":"..."}}]}
+
+It downloads `screen.bmp`, a 320x240 24-bit BMP of the current T-Deck screen. The endpoint corrects the T-Deck readback byte order so captured cyan matches the device display. For comparison/debugging, the raw conversion is still available:
+
+```txt
+http://<device-ip>/ss?raw=1
 ```
 
-**Anthropic:**
+The screenshot readback takes a few seconds.
+
+## Project Layout
+
+```txt
+src/main.cpp              Launcher, boot flow, trackball handling, screenshot server
+src/ui/                   Theme, layout, home screen, shared widgets
+src/modules/chat.*        AI chat client and persona-aware context
+src/modules/weather.*     Weather dashboard and location setup
+src/modules/solar.*       Solar and space-weather dashboard
+src/modules/btc.*         Crypto dashboard
+src/modules/noaa.*        Field LOG module, replacing the old NOAA alert experiment
+src/modules/world.*       FIRES and QUAKES feeds
+src/modules/sysinfo.*     SYSTEM diagnostics
+src/net/wifi_mgr.*        WiFi/NVS/SD credential handling
+src/persona/              SD persona loading and slot selection
+sd_card/                  Example SD card files
+config-examples/          Legacy provider examples from the earlier AI-only release
 ```
-POST https://api.anthropic.com/v1/messages
-x-api-key: {key}
-anthropic-version: 2023-06-01
-{"model":"...","max_tokens":1024,"messages":[...]}
-→ {"content":[{"type":"text","text":"..."}]}
-```
+
+## Notes For This Release
+
+This release is a major UI and feature update from the earlier AI-only build:
+
+- Removed touch UI assumptions in favor of trackball navigation
+- Replaced the failed NOAA alert section with the SD-backed LOG screen
+- Added real-time FIRES and QUAKES screens
+- Added richer SOLAR visuals and 48h Kp forecast display
+- Added BTC/ETH crypto data and chart layout polish
+- Added SYSTEM diagnostics polish and faster load behavior
+- Added true-color `/ss` screenshots over WiFi
+- Added SD personas, portal URL loading, and on-device backend switching
+
+## Security Notes
+
+- Remove sensitive SD setup files after use when possible.
+- `wifi.txt` is removed automatically after credentials are saved.
+- `portal.txt` is not removed automatically. Delete it manually after setup if desired.
+- `donki.txt` is not removed automatically. Delete it manually only after you confirm the NASA key works.
+- Persona files may contain private prompts. Treat the SD card accordingly.
+
+
+
