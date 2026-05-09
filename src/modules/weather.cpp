@@ -477,7 +477,7 @@ static void drawWeatherScreen() {
         s_tft->setTextFont(FONT_SMALL);
         s_tft->setTextColor(COL_CYAN, COL_BG);
         s_tft->drawCentreString("Q=home  R=refresh  L=location", SCREEN_W / 2, ya + 3, FONT_SMALL);
-        drawBatteryIndicator(*s_tft, SCREEN_W - 50, ya + 1);
+        drawBatteryIndicatorRight(*s_tft, ya + 1);
     }
 }
 

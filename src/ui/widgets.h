@@ -103,12 +103,27 @@ inline void drawBatteryIndicator(TFT_eSPI &tft, int x, int y, uint16_t fg = COL_
     else snprintf(buf, sizeof(buf), "%d%%", pct);
     tft.drawString(buf, x, y + 5);
 
-    int iconX = x + 28;
+    int iconX = x + tft.textWidth(buf) + 4;
     int iconY = y + 4;
     tft.drawRect(iconX, iconY, 17, 9, fg);
     tft.drawFastVLine(iconX + 17, iconY + 3, 3, fg);
     int fillW = pct < 0 ? 0 : (pct * 13) / 100;
     if (fillW > 0) tft.fillRect(iconX + 2, iconY + 2, fillW, 5, fg);
+}
+
+inline void drawBatteryIndicatorRight(TFT_eSPI &tft, int y, uint16_t fg = COL_CYAN, uint16_t bg = COL_BG) {
+    int pct = batteryPercentFromMv(readTDeckBatteryMv());
+    tft.setTextFont(FONT_SMALL);
+
+    char buf[6];
+    if (pct < 0) strlcpy(buf, "--%", sizeof(buf));
+    else snprintf(buf, sizeof(buf), "%d%%", pct);
+
+    int iconW = 18;
+    int gap = 4;
+    int textW = tft.textWidth(buf);
+    int x = SCREEN_W - 4 - iconW - gap - textW;
+    drawBatteryIndicator(tft, x, y, fg, bg);
 }
 
 inline String footerDisplayName() {
@@ -133,7 +148,7 @@ inline void drawBottomBar(TFT_eSPI &tft, const char *left, bool blinkState) {
     tft.setTextColor(COL_CYAN, COL_BG);
     if (left && left[0]) tft.drawString(left, 4, y + 3);
     else drawFooterName(tft, y);
-    drawBatteryIndicator(tft, SCREEN_W - 50, y + 1);
+    drawBatteryIndicatorRight(tft, y + 1);
 }
 
 // ── Status dot ────────────────────────────────────────────────────────────────

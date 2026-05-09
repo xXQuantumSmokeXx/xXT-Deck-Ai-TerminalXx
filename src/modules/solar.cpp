@@ -555,18 +555,20 @@ static void drawSolarScreen() {
         s_tft->drawString(stats[i].val, rx + 32, sy);
     }
 
-    // ── 24h Kp bar chart ─────────────────────────────────────────────────────
-    int chartY = cy + 56;
+    // -- 24h Kp bar chart -----------------------------------------------------
+    int bottomY = SCREEN_H - BOTTOMBAR_H;
+    int chartY = cy + 58;
     s_tft->drawFastHLine(0, chartY - 2, SCREEN_W, COL_CYAN);
     s_tft->setTextFont(FONT_SMALL);
     s_tft->setTextColor(COL_CYAN, COL_BG);
     s_tft->drawString("24H Kp", 4, chartY);
 
     int barAreaY = chartY + 10;
-    int barMaxH  = 24;
+    int barMaxH  = 34;
     int barW     = 35;
     int barGap   = 3;
     int barStartX = (SCREEN_W - 8 * (barW + barGap) + barGap) / 2;
+    int histLabelY = barAreaY + barMaxH + 2;
 
     for (int i = 0; i < 8; i++) {
         float kp = s_sol.kpHistory[i];
@@ -580,17 +582,16 @@ static void drawSolarScreen() {
         char kpN[4]; snprintf(kpN, sizeof(kpN), "%.0f", kp);
         int lw = s_tft->textWidth(kpN);
         s_tft->setTextFont(FONT_SMALL);
-        s_tft->setTextColor(COL_BG, bc);
-        s_tft->drawString(kpN, x + (barW - lw) / 2, y + 1);
+        s_tft->setTextColor(COL_CYAN, COL_BG);
+        s_tft->drawString(kpN, x + (barW - lw) / 2, histLabelY);
     }
     s_tft->setTextFont(FONT_SMALL);
     s_tft->setTextColor(COL_CYAN, COL_BG);
     s_tft->drawString("9", barStartX - 8, barAreaY);
     s_tft->drawString("0", barStartX - 8, barAreaY + barMaxH - 6);
 
-    // ── 48h Kp forecast ───────────────────────────────────────────────────────
-    int bottomY = SCREEN_H - BOTTOMBAR_H;
-    int foreY = barAreaY + barMaxH + 2;
+    // -- 48h Kp forecast ------------------------------------------------------
+    int foreY = histLabelY + 11;
     s_tft->drawFastHLine(0, foreY - 2, SCREEN_W, COL_CYAN);
     s_tft->setTextFont(FONT_SMALL);
     s_tft->setTextColor(COL_CYAN, COL_BG);
@@ -598,9 +599,10 @@ static void drawSolarScreen() {
 
     int count = min(s_sol.forecastCount, 7);
     int cellW = SCREEN_W / max(count, 1);
-    int fBarY = foreY + 10;
-    int fBarH = bottomY - fBarY - 12;
-    if (fBarH < 42) fBarH = 42;
+    int timeY = foreY + 10;
+    int fBarY = timeY + 10;
+    int fBarH = barMaxH;
+    int forecastLabelY = fBarY + fBarH + 2;
     for (int i = 0; i < count; i++) {
         int x = i * cellW;
         int cx = x + cellW / 2;
@@ -615,17 +617,15 @@ static void drawSolarScreen() {
         s_tft->setTextFont(FONT_SMALL);
         s_tft->setTextColor(COL_CYAN, COL_BG);
         int tw = s_tft->textWidth(s_sol.forecast[i].hhmm);
-        s_tft->drawString(s_sol.forecast[i].hhmm, cx - tw / 2, foreY + 2);
+        s_tft->drawString(s_sol.forecast[i].hhmm, cx - tw / 2, timeY);
 
         char kpN[5]; snprintf(kpN, sizeof(kpN), "%.1f", kp);
         s_tft->setTextColor(fc, COL_BG);
         int kw = s_tft->textWidth(kpN);
-        s_tft->drawString(kpN, cx - kw / 2, fBarY + fBarH + 2);
-
+        s_tft->drawString(kpN, cx - kw / 2, forecastLabelY);
 
         if (i < count - 1) s_tft->drawFastVLine(x + cellW - 1, foreY + 1, bottomY - foreY - 2, COL_CYAN);
     }
-
     // ── Alert / hint bar — fixed at screen bottom ─────────────────────────────
     int g = kpGLevel(s_sol.kpCurrent);
     bool bzAlert = s_sol.bzNT < -5.0f && s_sol.bzNT != 0.0f;
@@ -654,7 +654,7 @@ static void drawSolarScreen() {
         s_tft->setTextFont(FONT_SMALL);
         s_tft->setTextColor(COL_CYAN, COL_BG);
         s_tft->drawCentreString("Q=home  R=refresh", SCREEN_W / 2, bottomY + 3, FONT_SMALL);
-        drawBatteryIndicator(*s_tft, SCREEN_W - 50, bottomY + 1);
+        drawBatteryIndicatorRight(*s_tft, bottomY + 1);
     }
 }
 

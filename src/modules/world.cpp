@@ -10,17 +10,17 @@
 
 #define KB_ADDR    0x55
 #define MAX_ITEMS  12
-#define ROW_H      18
+#define ROW_H      16
 
 // ── Data models ───────────────────────────────────────────────────────────────
 struct QuakeItem {
     float mag;
-    char  place[36];
+    char  place[72];
     char  when[15];
 };
 
 struct FireItem {
-    char  title[41];
+    char  title[72];
     char  when[15];
 };
 
@@ -63,6 +63,19 @@ static void truncStr(const char *src, char *dst, int maxChars) {
         dst[maxChars - 1] = '.';
         dst[maxChars]     = '\0';
     }
+}
+
+static String fitTextPx(const char *src, int maxPx) {
+    if (!src || maxPx <= 0) return String("");
+    String out(src);
+    if (!s_tft || s_tft->textWidth(out) <= maxPx) return out;
+
+    while (out.length() > 2) {
+        out.remove(out.length() - 1);
+        String candidate = out + "..";
+        if (s_tft->textWidth(candidate) <= maxPx) return candidate;
+    }
+    return String("..");
 }
 
 static void msToWhen(long long ms, char *out, int outLen) {
@@ -229,12 +242,15 @@ static void drawQuakesScreen() {
         s_tft->drawString(magBuf, 2, y + 2);
 
         int magW = s_tft->textWidth(magBuf) + 4;
-        s_tft->setTextColor(COL_WHITE, COL_BG);
-        s_tft->drawString(q.place, 2 + magW, y + 2);
-
         int dw = s_tft->textWidth(q.when);
+        int dateX = SCREEN_W - dw - 2;
+        int placeX = 2 + magW;
+        String place = fitTextPx(q.place, dateX - placeX - 4);
+        s_tft->setTextColor(COL_WHITE, COL_BG);
+        s_tft->drawString(place, placeX, y + 2);
+
         s_tft->setTextColor(COL_CYAN, COL_BG);
-        s_tft->drawString(q.when, SCREEN_W - dw - 2, y + 2);
+        s_tft->drawString(q.when, dateX, y + 2);
 
         if (i < limit - 1)
             s_tft->drawFastHLine(0, y + ROW_H - 1, SCREEN_W, COL_GREY_DIM);
@@ -276,12 +292,14 @@ static void drawFiresScreen() {
         s_tft->setTextColor(COL_AMBER, COL_BG);
         s_tft->drawString("\x2A", 2, y + 2);
 
-        s_tft->setTextColor(COL_WHITE, COL_BG);
-        s_tft->drawString(fi.title, 12, y + 2);
-
         int dw = s_tft->textWidth(fi.when);
+        int dateX = SCREEN_W - dw - 2;
+        String title = fitTextPx(fi.title, dateX - 16);
+        s_tft->setTextColor(COL_WHITE, COL_BG);
+        s_tft->drawString(title, 12, y + 2);
+
         s_tft->setTextColor(COL_CYAN, COL_BG);
-        s_tft->drawString(fi.when, SCREEN_W - dw - 2, y + 2);
+        s_tft->drawString(fi.when, dateX, y + 2);
 
         if (i < limit - 1)
             s_tft->drawFastHLine(0, y + ROW_H - 1, SCREEN_W, COL_GREY_DIM);
