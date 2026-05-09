@@ -58,7 +58,7 @@ YourWiFiSSID
 YourWiFiPassword
 ```
 
-On boot, the firmware saves these credentials to NVS and removes `wifi.txt` from the SD card.
+On boot, the firmware saves these credentials to NVS. Delete `wifi.txt` manually after setup if you do not want WiFi credentials left on the SD card.
 
 ### `portal.txt`
 
@@ -225,9 +225,9 @@ This release is a major UI and feature update from the earlier AI-only build:
 
 ## Security Notes
 
-- Remove sensitive SD setup files after use when possible.
-- `wifi.txt` is removed automatically after credentials are saved.
-- `portal.txt` is not removed automatically. Delete it manually after setup if desired.
+- Remove sensitive SD setup files manually after setup when possible.
+- `wifi.txt` is not removed automatically. Delete it after WiFi credentials are saved and confirmed working.
+- `portal.txt` is not removed automatically. Delete it after the backend URL is saved and confirmed working if desired.
 - `donki.txt` is not removed automatically. Delete it manually only after you confirm the NASA key works.
 - Persona files may contain private prompts. Treat the SD card accordingly.
 
