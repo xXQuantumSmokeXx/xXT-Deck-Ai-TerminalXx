@@ -1,10 +1,10 @@
-﻿#include "home.h"
+#include "home.h"
 #include "theme.h"
 #include "widgets.h"
 #include <Arduino.h>
 #include <time.h>
 
-// â”€â”€ Tile definitions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Tile definitions ──────────────────────────────────────────────────────────
 struct TileDef {
     const char *label;
     uint16_t    accent;
@@ -21,7 +21,7 @@ static const TileDef TILES[TILE_COUNT] = {
     { "SYSTEM",   COL_BLUE    },
 };
 
-// â”€â”€ State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── State ─────────────────────────────────────────────────────────────────────
 static int  s_cursor   = 0;
 static bool s_wifiOk   = false;
 static bool s_loraOk   = false;
@@ -29,7 +29,7 @@ static int  s_kp       = 0;
 static int  s_lastMin  = -1;
 static char s_clockStr[10] = "12:00 AM";
 
-// â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Helpers ───────────────────────────────────────────────────────────────────
 static void updateClock() {
     struct tm ti;
     if (getLocalTime(&ti, 0)) {
@@ -41,14 +41,14 @@ static void updateClock() {
     }
 }
 
-// â”€â”€ Vector tile icons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Vector tile icons ─────────────────────────────────────────────────────────
 static void drawTileIcon(TFT_eSPI &t, int idx, int cx, int cy) {
     const uint16_t C = COL_CYAN;
     const uint16_t B = COL_BG;
 
     switch (idx) {
 
-    case 0: { // AI CHAT â€” speech bubble
+    case 0: { // AI CHAT — speech bubble
         t.drawRoundRect(cx-13, cy-11, 26, 18, 4, C);
         // Tail pointing down-left
         t.fillTriangle(cx-13, cy+4, cx-13, cy+10, cx-4, cy+4, C);
@@ -60,7 +60,7 @@ static void drawTileIcon(TFT_eSPI &t, int idx, int cx, int cy) {
         break;
     }
 
-    case 1: { // WEATHER â€” sun peeking behind cloud
+    case 1: { // WEATHER — sun peeking behind cloud
         // Sun outline (upper-right of icon)
         int sx = cx+7, sy = cy-9;
         t.drawCircle(sx, sy, 5, C);
@@ -68,7 +68,7 @@ static void drawTileIcon(TFT_eSPI &t, int idx, int cx, int cy) {
         t.drawFastHLine(sx+6, sy, 3, C);
         t.drawFastVLine(sx, sy-9, 3, C);
         t.drawFastVLine(sx, sy+6, 3, C);
-        // Cloud (filled) â€” covers lower portion including part of sun
+        // Cloud (filled) — covers lower portion including part of sun
         t.fillCircle(cx-8, cy+4, 7, C);
         t.fillCircle(cx+1, cy,   9, C);
         t.fillCircle(cx+9, cy+4, 6, C);
@@ -76,14 +76,14 @@ static void drawTileIcon(TFT_eSPI &t, int idx, int cx, int cy) {
         break;
     }
 
-    case 2: { // SOLAR â€” sun with rays
+    case 2: { // SOLAR — sun with rays
         t.fillCircle(cx, cy, 6, C);
         // Cardinal rays
         t.drawFastHLine(cx-13, cy, 5, C);
         t.drawFastHLine(cx+8,  cy, 5, C);
         t.drawFastVLine(cx, cy-13, 5, C);
         t.drawFastVLine(cx, cy+8,  5, C);
-        // Diagonal rays (45Â° offsets â‰ˆ 0.707 Ã— r)
+        // Diagonal rays (45° offsets ≈ 0.707 × r)
         t.drawLine(cx+6, cy-6, cx+10, cy-10, C);
         t.drawLine(cx-6, cy-6, cx-10, cy-10, C);
         t.drawLine(cx+6, cy+6, cx+10, cy+10, C);
@@ -100,7 +100,7 @@ static void drawTileIcon(TFT_eSPI &t, int idx, int cx, int cy) {
         break;
     }
 
-    case 4: { // BTC â€” coin with B
+    case 4: { // BTC — coin with B
         t.drawCircle(cx, cy, 13, C);
         t.drawCircle(cx, cy, 12, C);   // double ring
         // B vertical stroke
@@ -118,7 +118,7 @@ static void drawTileIcon(TFT_eSPI &t, int idx, int cx, int cy) {
         break;
     }
 
-    case 5: { // FIRES â€” flame silhouette
+    case 5: { // FIRES — flame silhouette
         // Outer flame fill
         t.fillTriangle(cx, cy-13, cx-9, cy+4, cx+9, cy+4, C);
         t.fillCircle(cx-4, cy+3, 7, C);
@@ -130,7 +130,7 @@ static void drawTileIcon(TFT_eSPI &t, int idx, int cx, int cy) {
         break;
     }
 
-    case 6: { // QUAKES â€” seismograph waveform
+    case 6: { // QUAKES — seismograph waveform
         int bl = cy + 3;  // baseline y
         t.drawFastHLine(cx-14, bl, 7, C);
         t.drawLine(cx-7, bl, cx-3, cy-11, C);
@@ -140,7 +140,7 @@ static void drawTileIcon(TFT_eSPI &t, int idx, int cx, int cy) {
         break;
     }
 
-    case 7: { // SYSTEM â€” gear
+    case 7: { // SYSTEM — gear
         t.drawCircle(cx, cy, 10, C);
         t.drawCircle(cx, cy,  5, C);
         // N/S/E/W teeth
@@ -160,7 +160,7 @@ static void drawTileIcon(TFT_eSPI &t, int idx, int cx, int cy) {
     }
 }
 
-// â”€â”€ Draw a single tile â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Draw a single tile ────────────────────────────────────────────────────────
 static void drawTile(TFT_eSPI &tft, int idx, bool selected) {
     int col = idx % TILE_COLS;
     int row = idx / TILE_COLS;
@@ -178,7 +178,7 @@ static void drawTile(TFT_eSPI &tft, int idx, bool selected) {
 
     // Label
     tft.setTextFont(FONT_SMALL);
-    tft.setTextColor(selected ? COL_WHITE : COL_GREY_MID, COL_BG);
+    tft.setTextColor(selected ? COL_WHITE : COL_CYAN, COL_BG);
     int labelW = tft.textWidth(TILES[idx].label);
     tft.drawString(TILES[idx].label, x + (w - labelW) / 2, y + h - 18);
 
@@ -188,7 +188,7 @@ static void drawTile(TFT_eSPI &tft, int idx, bool selected) {
     }
 }
 
-// â”€â”€ Public API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Public API ────────────────────────────────────────────────────────────────
 void homeInit(TFT_eSPI &tft) {
     s_cursor = 0;
     tft.fillScreen(COL_BG);

@@ -86,7 +86,11 @@ static String   s_inputBuf  = "";
 static uint8_t s_bright = 16;
 
 static void setBrightness(uint8_t level16) {
+    if (level16 < 1) level16 = 1;
+    if (level16 > 16) level16 = 16;
+    s_bright = level16;
     ledcWrite(BL_PWM_CHANNEL, (uint32_t)level16 * 255 / 16);
+    nvsPutInt("brightness", level16);
 }
 
 // ── Rendering ─────────────────────────────────────────────────────────────────
@@ -338,6 +342,9 @@ void chatInit(TFT_eSPI &tft) {
     s_scrollOff = 0;
     s_inputBuf  = "";
     ctxClear();
+    s_bright = nvsGetInt("brightness", 16);
+    if (s_bright < 1) s_bright = 1;
+    if (s_bright > 16) s_bright = 16;
 
     tft.fillScreen(COL_BG);
     drawChatTopbar();

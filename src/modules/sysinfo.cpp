@@ -10,6 +10,8 @@
 
 #define BOARD_SDCARD_CS  39
 #define KB_ADDR          0x55
+#define BOARD_BL_PIN     42
+#define BL_PWM_CHANNEL   0
 #define FW_VERSION       "v1.0"
 
 // ── Data model ────────────────────────────────────────────────────────────────
@@ -32,10 +34,19 @@ struct SysInfo {
     uint64_t sdUsed;
     char     serverUrl[48];
     int      personaSlot;
+    int      brightness;
 };
 
 static SysInfo   s_info;
 static TFT_eSPI *s_tft = nullptr;
+
+static void applyBrightness(int level16) {
+    if (level16 < 1) level16 = 1;
+    if (level16 > 16) level16 = 16;
+    ledcWrite(BL_PWM_CHANNEL, (uint32_t)level16 * 255 / 16);
+    nvsPutInt("brightness", level16);
+    s_info.brightness = level16;
+}
 
 // ── Keyboard ──────────────────────────────────────────────────────────────────
 static char readKeyboard() {
@@ -84,6 +95,9 @@ static void gatherData() {
     String url = nvsGetString("server_url");
     strlcpy(s_info.serverUrl, url.isEmpty() ? "" : url.c_str(), sizeof(s_info.serverUrl));
     s_info.personaSlot = nvsGetInt("persona_slot", 0);
+    s_info.brightness = nvsGetInt("brightness", 16);
+    if (s_info.brightness < 1) s_info.brightness = 1;
+    if (s_info.brightness > 16) s_info.brightness = 16;
 
 }
 
@@ -121,7 +135,7 @@ static void drawBar(int x, int y, int w, int h, float pct, uint16_t col) {
 // ── Two-column stat row helpers ───────────────────────────────────────────────
 static void drawLabel(int x, int y, const char *label) {
     s_tft->setTextFont(FONT_SMALL);
-    s_tft->setTextColor(COL_GREY_DIM, COL_BG);
+    s_tft->setTextColor(COL_CYAN, COL_BG);
     s_tft->drawString(label, x, y);
 }
 
@@ -147,7 +161,7 @@ static void drawSysinfoScreen() {
     // Status bar
     s_tft->fillRect(0, TOPBAR_H, SCREEN_W, STATUSBAR_H, COL_BG);
     s_tft->setTextFont(FONT_SMALL);
-    s_tft->setTextColor(COL_GREY_DIM, COL_BG);
+    s_tft->setTextColor(COL_CYAN, COL_BG);
     s_tft->drawString("AI TERMINAL", 4, TOPBAR_H + 3);
     const char *bdate = __DATE__;
     int bdw = s_tft->textWidth(bdate);
@@ -274,6 +288,12 @@ static void drawSysinfoScreen() {
     drawValue(54, y, psBuf);
 
     y += 11;
+    drawLabel(4, y, "BRIGHT");
+    char brightBuf[10];
+    snprintf(brightBuf, sizeof(brightBuf), "%d/16", s_info.brightness);
+    drawValue(58, y, brightBuf, COL_CYAN);
+
+    y += 11;
     // Current UTC time (read from NTP)
     struct tm ti;
     if (getLocalTime(&ti, 0)) {
@@ -286,8 +306,8 @@ static void drawSysinfoScreen() {
 
     // Hint bar ─────────────────────────────────────────────────────────────
     s_tft->setTextFont(FONT_SMALL);
-    s_tft->setTextColor(COL_GREY_DIM, COL_BG);
-    s_tft->drawCentreString("Q=home  R=refresh", SCREEN_W / 2, SCREEN_H - 12, FONT_SMALL);
+    s_tft->setTextColor(COL_CYAN, COL_BG);
+    s_tft->drawCentreString("Q=home  R=refresh  +/- bright", SCREEN_W / 2, SCREEN_H - 12, FONT_SMALL);
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -305,6 +325,14 @@ bool sysinfoLoop(TFT_eSPI &tft) {
     if (key == 'q' || key == 'Q' || key == 27 || key == 17 || key == 8) return false;
     if (key == 'r' || key == 'R') {
         gatherData();
+        drawSysinfoScreen();
+    }
+    if (key == '+' || key == '=') {
+        applyBrightness(s_info.brightness + 1);
+        drawSysinfoScreen();
+    }
+    if (key == '-' || key == '_') {
+        applyBrightness(s_info.brightness - 1);
         drawSysinfoScreen();
     }
     delay(20);

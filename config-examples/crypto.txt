@@ -1,0 +1,8 @@
+# CoinGecko coin IDs, one per line. Max 6.
+bitcoin
+ethereum
+solana
+chainlink
+dogecoin
+litecoin
+

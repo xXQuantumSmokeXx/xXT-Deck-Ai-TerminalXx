@@ -13,10 +13,10 @@ MayDay T-Deck AI Terminal is a field-ready firmware build for the LILYGO T-Deck 
 - WEATHER using Open-Meteo with user-set latitude and longitude
 - SOLAR dashboard with NOAA/SWPC space weather, Kp history, 48h forecast, Bz, solar wind, flares, and CME data
 - LOG field notes stored on SD card with add, select, edit, and delete support
-- BTC crypto screen with Bitcoin/Ethereum price, 24h and 7d movement, mini charts, and Fear & Greed
+- BTC crypto screen with up to six CoinGecko favorites, 24h and 7d movement, mini charts, and Fear & Greed
 - FIRES feed from NASA EONET open wildfire events
 - QUAKES feed from USGS recent earthquake data
-- SYSTEM screen for device, WiFi, SD, heap, uptime, backend, and persona status
+- SYSTEM screen for device, WiFi, SD, heap, uptime, backend, persona status, and brightness
 - Cyan terminal visual style tuned for the T-Deck display
 
 ## Hardware Required
@@ -139,6 +139,27 @@ The LOG screen writes entries to:
 
 The firmware creates and updates this file from the device. Keep the SD card inserted if you want LOG to work.
 
+### Crypto Favorites
+
+The BTC screen can load up to six CoinGecko coin IDs from the SD card root:
+
+```txt
+/crypto.txt
+```
+
+Use one CoinGecko coin ID per line. These are IDs such as `bitcoin`, `ethereum`, `solana`, or `chainlink`, not ticker symbols such as BTC or ETH.
+
+```txt
+bitcoin
+ethereum
+solana
+chainlink
+dogecoin
+litecoin
+```
+
+If `/crypto.txt` is missing, the firmware also checks `/coins.txt`, then falls back to coins saved from the on-device editor or the default Bitcoin/Ethereum pair.
+
 ## Controls
 
 ### Launcher
@@ -179,16 +200,28 @@ Weather uses Open-Meteo and stores `wx_lat` and `wx_lon` in NVS after you set th
 - D: delete selected entry
 - Q: return home
 
+### BTC
+
+- R: refresh crypto data
+- C: edit up to six CoinGecko coin ID slots on device
+- Q: return home
+
+### SYSTEM
+
+- R: refresh diagnostics
+- + / -: adjust screen brightness and save it to device settings
+- Q: return home
+
 ## Data Sources
 
 | Screen | Source |
 | --- | --- |
 | WEATHER | Open-Meteo forecast API |
 | SOLAR | NOAA/SWPC plus NASA DONKI for flares and CME data |
-| BTC | CoinGecko market data plus Alternative.me Fear & Greed |
+| BTC | CoinGecko market data, SD/NVS favorite coin IDs, plus Alternative.me Fear & Greed |
 | FIRES | NASA EONET open wildfire events |
 | QUAKES | USGS earthquake feed |
-| SYSTEM | Local ESP32/T-Deck state |
+| SYSTEM | Local ESP32/T-Deck state and brightness setting |
 | LOG | Local SD card `/logs/field.log` |
 
 Network feeds use short local caching where implemented so screens still have useful last-known data after a failed refresh.
@@ -201,7 +234,7 @@ src/ui/                   Theme, layout, home screen, shared widgets
 src/modules/chat.*        AI chat client and persona-aware context
 src/modules/weather.*     Weather dashboard and location setup
 src/modules/solar.*       Solar and space-weather dashboard
-src/modules/btc.*         Crypto dashboard
+src/modules/btc.*         Crypto dashboard and CoinGecko favorites
 src/modules/noaa.*        Field LOG module, replacing the old NOAA alert experiment
 src/modules/world.*       FIRES and QUAKES feeds
 src/modules/sysinfo.*     SYSTEM diagnostics
@@ -219,8 +252,8 @@ This release is a major UI and feature update from the earlier AI-only build:
 - Replaced the failed NOAA alert section with the SD-backed LOG screen
 - Added real-time FIRES and QUAKES screens
 - Added richer SOLAR visuals and 48h Kp forecast display
-- Added BTC/ETH crypto data and chart layout polish
-- Added SYSTEM diagnostics polish and faster load behavior
+- Added configurable CoinGecko crypto favorites and chart layout polish
+- Added SYSTEM diagnostics polish, persistent brightness control, and faster load behavior
 - Added SD personas, portal URL loading, and on-device backend switching
 
 ## Security Notes

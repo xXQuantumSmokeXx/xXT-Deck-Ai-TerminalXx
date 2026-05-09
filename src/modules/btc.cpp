@@ -14,12 +14,12 @@
 #define BOARD_SDCARD_CS  39
 #define KB_ADDR          0x55
 #define CACHE_TTL_SEC    300    // 5 minutes
-#define COIN_MAX         2
+#define COIN_MAX         6
 #define SPARK_POINTS     168    // 7 days × 24h hourly prices
 
 // ── Data model ────────────────────────────────────────────────────────────────
 struct CoinData {
-    char   id[24];
+    char   id[32];
     char   symbol[8];
     char   name[24];
     double priceUsd;
@@ -65,7 +65,7 @@ static String btcReadLine(const char *prompt) {
         if (k == 0) { delay(20); continue; }
         if (k == '\r' || k == '\n') break;
         if ((k == 8 || k == 127) && buf.length() > 0) buf.remove(buf.length() - 1);
-        else if (isprint((unsigned char)k) && buf.length() < 22) buf += k;
+        else if (isprint((unsigned char)k) && buf.length() < 31) buf += k;
         redraw();
         delay(20);
     }
@@ -73,14 +73,68 @@ static String btcReadLine(const char *prompt) {
 }
 
 // ── Load coin IDs from NVS (defaults: bitcoin, ethereum) ─────────────────────
+static bool addCoinId(const String &raw) {
+    if (s_coinCount >= COIN_MAX) return false;
+    String id = raw;
+    id.trim();
+    id.toLowerCase();
+    if (id.isEmpty() || id.startsWith("#")) return false;
+    int comment = id.indexOf('#');
+    if (comment >= 0) {
+        id = id.substring(0, comment);
+        id.trim();
+    }
+    if (id.isEmpty()) return false;
+
+    for (int i = 0; i < s_coinCount; i++) {
+        if (id.equals(s_coins[i].id)) return false;
+    }
+
+    strlcpy(s_coins[s_coinCount].id, id.c_str(), sizeof(s_coins[s_coinCount].id));
+    s_coinCount++;
+    return true;
+}
+
+static bool loadCoinIdsFromFile(const char *path) {
+    if (!SD.begin(BOARD_SDCARD_CS)) return false;
+    if (!SD.exists(path)) { SD.end(); return false; }
+
+    File f = SD.open(path, FILE_READ);
+    if (!f) { SD.end(); return false; }
+
+    s_coinCount = 0;
+    String line = "";
+    while (f.available() && s_coinCount < COIN_MAX) {
+        char ch = (char)f.read();
+        if (ch == '\r') continue;
+        if (ch == '\n') {
+            addCoinId(line);
+            line = "";
+        } else if (line.length() < 48) {
+            line += ch;
+        }
+    }
+    addCoinId(line);
+
+    f.close();
+    SD.end();
+    return s_coinCount > 0;
+}
+
 static void loadCoinIds() {
-    String c0 = nvsGetString("btc_coin0");
-    String c1 = nvsGetString("btc_coin1");
-    if (c0.isEmpty()) c0 = "bitcoin";
-    if (c1.isEmpty()) c1 = "ethereum";
-    strlcpy(s_coins[0].id, c0.c_str(), sizeof(s_coins[0].id));
-    strlcpy(s_coins[1].id, c1.c_str(), sizeof(s_coins[1].id));
-    s_coinCount = 2;
+    s_coinCount = 0;
+    if (loadCoinIdsFromFile("/crypto.txt") || loadCoinIdsFromFile("/coins.txt")) return;
+
+    for (int i = 0; i < COIN_MAX; i++) {
+        char key[12];
+        snprintf(key, sizeof(key), "btc_coin%d", i);
+        addCoinId(nvsGetString(key));
+    }
+
+    if (s_coinCount == 0) {
+        addCoinId("bitcoin");
+        addCoinId("ethereum");
+    }
 }
 
 // ── Format price with comma separators ───────────────────────────────────────
@@ -191,7 +245,7 @@ static bool parseCoinsJson(const String &json) {
 
 // ── Network fetch ─────────────────────────────────────────────────────────────
 static bool fetchCoins() {
-    char ids[64] = "";
+    char ids[256] = "";
     for (int i = 0; i < s_coinCount; i++) {
         if (i > 0) strlcat(ids, ",", sizeof(ids));
         strlcat(ids, s_coins[i].id, sizeof(ids));
@@ -359,6 +413,56 @@ static void drawBtcScreen() {
     // fillScreen at the top of this function alone doesn't always cover it.
     s_tft->fillRect(0, contentY, SCREEN_W, contentH, COL_BG);
 
+    // Compact list mode for SD/NVS coin watchlists larger than two coins.
+    if (s_coinCount > 2) {
+        int rowHCompact = contentH / s_coinCount;
+        if (rowHCompact < 24) rowHCompact = 24;
+
+        for (int i = 0; i < s_coinCount; i++) {
+            int ry = contentY + i * rowHCompact;
+            const CoinData &c = s_coins[i];
+
+            if (i > 0) s_tft->drawFastHLine(0, ry, SCREEN_W, COL_GREY_DIM);
+
+            if (!c.valid) {
+                s_tft->setTextFont(FONT_SMALL);
+                s_tft->setTextColor(COL_GREY_DIM, COL_BG);
+                char buf[36];
+                snprintf(buf, sizeof(buf), "%.30s: NOT FOUND", s_coins[i].id);
+                s_tft->drawString(buf, 4, ry + 8);
+                continue;
+            }
+
+            char priceBuf[18];
+            char chg24[12];
+            char chg7d[12];
+            formatPrice(c.priceUsd, priceBuf, sizeof(priceBuf));
+            snprintf(chg24, sizeof(chg24), "%+.1f%%", c.change24h);
+            snprintf(chg7d, sizeof(chg7d), "%+.1f%%", c.change7d);
+
+            s_tft->setTextFont(FONT_MED);
+            s_tft->setTextColor(COL_GOLD, COL_BG);
+            s_tft->drawString(c.symbol, 4, ry + 4);
+
+            s_tft->setTextColor(COL_WHITE, COL_BG);
+            s_tft->drawString(priceBuf, 70, ry + 4);
+
+            s_tft->setTextFont(FONT_SMALL);
+            s_tft->setTextColor(c.change24h >= 0 ? COL_CYAN : COL_RED, COL_BG);
+            s_tft->drawString(chg24, 190, ry + 4);
+            s_tft->setTextColor(c.change7d >= 0 ? COL_CYAN : COL_RED, COL_BG);
+            s_tft->drawString(chg7d, 252, ry + 4);
+
+            s_tft->setTextColor(COL_GREY_DIM, COL_BG);
+            s_tft->drawString("24H", 190, ry + 16);
+            s_tft->drawString("7D", 252, ry + 16);
+        }
+
+        s_tft->setTextFont(FONT_SMALL);
+        s_tft->setTextColor(COL_GREY_DIM, COL_BG);
+        s_tft->drawCentreString("Q=home  R=refresh  C=coins", SCREEN_W / 2, SCREEN_H - 12, FONT_SMALL);
+        return;
+    }
     for (int i = 0; i < s_coinCount; i++) {
         int ry = contentY + i * rowH;
         const CoinData &c = s_coins[i];
@@ -369,7 +473,7 @@ static void drawBtcScreen() {
             s_tft->setTextFont(FONT_SMALL);
             s_tft->setTextColor(COL_GREY_DIM, COL_BG);
             char buf[32];
-            snprintf(buf, sizeof(buf), "%.22s: NOT FOUND", s_coins[i].id);
+            snprintf(buf, sizeof(buf), "%.30s: NOT FOUND", s_coins[i].id);
             s_tft->drawString(buf, 4, ry + rowH / 2 - 4);
             continue;
         }
@@ -442,23 +546,40 @@ static void drawBtcScreen() {
 
 // ── Coin picker ───────────────────────────────────────────────────────────────
 static void doCoinPicker() {
-    for (int i = 0; i < s_coinCount; i++) {
-        char prompt[52];
-        snprintf(prompt, sizeof(prompt), "Coin %d ID (e.g. solana, dogecoin):", i + 1);
-        String val = btcReadLine(prompt);
-        val.trim();
-        if (val.isEmpty()) continue;
-        val.toLowerCase();
+    char oldIds[COIN_MAX][32];
+    int oldCount = s_coinCount;
+    for (int i = 0; i < COIN_MAX; i++) {
+        oldIds[i][0] = '\0';
+        if (i < oldCount) strlcpy(oldIds[i], s_coins[i].id, sizeof(oldIds[i]));
         char key[12];
         snprintf(key, sizeof(key), "btc_coin%d", i);
+        nvsPutString(key, "");
+    }
+
+    s_coinCount = 0;
+    for (int i = 0; i < COIN_MAX; i++) {
+        char prompt[60];
+        snprintf(prompt, sizeof(prompt), "Coin %d ID blank=keep/skip:", i + 1);
+        String val = btcReadLine(prompt);
+        val.trim();
+        if (val.isEmpty() && i < oldCount) val = oldIds[i];
+        if (val.isEmpty()) continue;
+        val.toLowerCase();
+        if (!addCoinId(val)) continue;
+
+        char key[12];
+        snprintf(key, sizeof(key), "btc_coin%d", s_coinCount - 1);
         nvsPutString(key, val);
-        strlcpy(s_coins[i].id, val.c_str(), sizeof(s_coins[i].id));
-        s_coins[i].valid = false;
+    }
+
+    if (s_coinCount == 0) {
+        addCoinId("bitcoin");
+        addCoinId("ethereum");
     }
     nvsPutInt("btc_cached_at", 0);
 }
 
-// ── Public API ────────────────────────────────────────────────────────────────
+// -- Public API ────────────────────────────────────────────────────────────────
 void btcInit(TFT_eSPI &tft) {
     s_tft = &tft;
     tft.fillScreen(COL_BG);   // clear home screen immediately before any SD/net ops

@@ -1,4 +1,4 @@
-﻿#include <Arduino.h>
+#include <Arduino.h>
 #include <Wire.h>
 #include <SPI.h>
 #include <SD.h>
@@ -19,7 +19,7 @@
 #include "modules/noaa.h"
 #include "modules/world.h"
 
-// â”€â”€ Board pins â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Board pins ────────────────────────────────────────────────────────────────
 #define BOARD_POWERON    10
 #define BOARD_I2C_SDA    18
 #define BOARD_I2C_SCL     8
@@ -36,7 +36,7 @@
 #define BOARD_TBOX_RIGHT  1
 #define KB_ADDR         0x55
 
-// â”€â”€ Backlight â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Backlight ─────────────────────────────────────────────────────────────────
 #define BL_PWM_CHANNEL  0
 #define BL_PWM_FREQ     1000
 #define BL_PWM_BITS     8
@@ -44,19 +44,22 @@
 static void initBrightness() {
     ledcSetup(BL_PWM_CHANNEL, BL_PWM_FREQ, BL_PWM_BITS);
     ledcAttachPin(BOARD_BL_PIN, BL_PWM_CHANNEL);
-    ledcWrite(BL_PWM_CHANNEL, 255);
+    int level16 = nvsGetInt("brightness", 16);
+    if (level16 < 1) level16 = 1;
+    if (level16 > 16) level16 = 16;
+    ledcWrite(BL_PWM_CHANNEL, (uint32_t)level16 * 255 / 16);
 }
 
-// â”€â”€ Screen state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Screen state ──────────────────────────────────────────────────────────────
 enum Screen { SCR_HOME, SCR_CHAT, SCR_WEATHER, SCR_SOLAR, SCR_BTC, SCR_SYSINFO, SCR_ALERTS, SCR_WORLD, SCR_STUB };
 
 static Screen    s_screen = SCR_HOME;
 static TFT_eSPI  tft;
 static WebServer s_webServer(80);
 
-// â”€â”€ WiFi screenshot server â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// GET http://<device-ip>/ss  â†’ downloads screen.bmp (24-bit BMP, ~230 KB).
-// Reads rows via tft.readRect() over SPI â€” takes 2-5 seconds per request.
+// ── WiFi screenshot server ────────────────────────────────────────────────────
+// GET http://<device-ip>/ss  → downloads screen.bmp (24-bit BMP, ~230 KB).
+// Reads rows via tft.readRect() over SPI — takes 2-5 seconds per request.
 static void handleScreenshot() {
     const int W = SCREEN_W, H = SCREEN_H;
     const int fileSize = 54 + W * H * 3;
@@ -97,7 +100,7 @@ static void handleScreenshot() {
     }
 }
 
-// â”€â”€ Keyboard read â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Keyboard read ─────────────────────────────────────────────────────────────
 static char readKeyboard() {
     char key = 0;
     Wire.requestFrom((uint8_t)KB_ADDR, (uint8_t)1);
@@ -105,7 +108,7 @@ static char readKeyboard() {
     return key;
 }
 
-// â”€â”€ Trackball â€” interrupt-based pulse counting â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Trackball — interrupt-based pulse counting ────────────────────────────────
 static volatile int s_tbUp    = 0;
 static volatile int s_tbDown  = 0;
 static volatile int s_tbLeft  = 0;
@@ -154,14 +157,14 @@ static bool handleScreenTrackball() {
     return right > 0;
 }
 
-// â”€â”€ Return to home â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Return to home ────────────────────────────────────────────────────────────
 static void returnHome() {
     if (s_screen == SCR_CHAT) chatExit();
     s_screen = SCR_HOME;
     homeInit(tft);
 }
 
-// â”€â”€ Launch a tile â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Launch a tile ─────────────────────────────────────────────────────────────
 static void launchTile(TileID id) {
     switch (id) {
         case TILE_CHAT:
@@ -210,7 +213,7 @@ static void launchTile(TileID id) {
     }
 }
 
-// â”€â”€ SD portal.txt boot load â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── SD portal.txt boot load ───────────────────────────────────────────────────
 static void loadPortalUrlFromSD() {
     if (!SD.begin(BOARD_SDCARD_CS)) return;
     if (!SD.exists("/portal.txt")) { SD.end(); return; }
@@ -229,7 +232,7 @@ static void loadPortalUrlFromSD() {
     if (url.length() > 0) nvsPutString("server_url", url);
 }
 
-// â”€â”€ Splash screen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Splash screen ─────────────────────────────────────────────────────────────
 // SD donki.txt boot load
 static void loadDonkiKeyFromSD() {
     if (!SD.begin(BOARD_SDCARD_CS)) return;
@@ -264,7 +267,7 @@ static void showSplash() {
     tft.fillScreen(COL_BG);
 }
 
-// â”€â”€ Boot WiFi + NTP â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Boot WiFi + NTP ───────────────────────────────────────────────────────────
 static void bootWifi() {
     String ssid, pass;
     if (wifiLoadFromSD(ssid, pass)) wifiSaveCreds(ssid, pass);
@@ -278,7 +281,7 @@ static void bootWifi() {
         homeSetWifiStatus(true);
         tft.setTextColor(COL_CYAN, COL_BG);
         tft.drawString("Connected: " + wifiIP(), 4, 26);
-        // NTP sync â€” Eastern time with auto DST
+        // NTP sync — Eastern time with auto DST
         configTime(0, 0, "pool.ntp.org", "time.nist.gov");
         setenv("TZ", "EST5EDT,M3.2.0,M11.1.0", 1);
         tzset();
@@ -303,7 +306,7 @@ static void bootWifi() {
     }
 }
 
-// â”€â”€ setup â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── setup ─────────────────────────────────────────────────────────────────────
 void setup() {
     Serial.begin(115200);
 
@@ -339,7 +342,7 @@ void setup() {
     homeInit(tft);
 }
 
-// â”€â”€ loop â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── loop ──────────────────────────────────────────────────────────────────────
 void loop() {
     s_webServer.handleClient();  // non-blocking; serves /ss screenshot on demand
 
