@@ -1,6 +1,6 @@
 ﻿# MayDay T-Deck AI Terminal
 
-MayDay T-Deck AI Terminal is a field-ready firmware build for the LILYGO T-Deck ESP32-S3. It started as an AI chat terminal and now includes a trackball-first launcher, AI persona chat, weather, solar conditions, crypto, field logging, wildfire and earthquake feeds, and system diagnostics.
+MayDay T-Deck AI Terminal is a field-ready firmware build for the LILYGO T-Deck ESP32-S3. It started as an AI chat terminal and now includes a trackball-first launcher, AI persona chat, weather, solar conditions, crypto, field logging, wildfire and USGS earthquake feeds, and system diagnostics.
 
 [![Support on Patreon](https://img.shields.io/badge/Support-Patreon-orange)](https://www.patreon.com/c/xXQuantumSmokeXx)
 
@@ -13,9 +13,9 @@ MayDay T-Deck AI Terminal is a field-ready firmware build for the LILYGO T-Deck 
 - WEATHER using Open-Meteo with user-set latitude and longitude
 - SOLAR dashboard with NOAA/SWPC space weather, Kp history, 48h forecast, Bz, solar wind, flares, and CME data
 - LOG field notes stored on SD card with add, select, edit, and delete support
-- BTC crypto screen with up to six CoinGecko favorites, 24h and 7d movement, mini charts, and Fear & Greed
+- CRYPTO screen with up to six CoinGecko favorites, 24h and 7d movement, mini charts, and Fear & Greed
 - FIRES feed from NASA EONET open wildfire events
-- QUAKES feed from USGS recent earthquake data
+- USGS feed for recent earthquake data
 - SYSTEM screen for device, WiFi, SD, heap, uptime, backend, persona status, and brightness
 - Cyan terminal visual style tuned for the T-Deck display
 
@@ -23,7 +23,7 @@ MayDay T-Deck AI Terminal is a field-ready firmware build for the LILYGO T-Deck 
 
 - LILYGO T-Deck, ESP32-S3 version
 - microSD card for SD flashing, WiFi bootstrap files, personas, cache, and field logs
-- WiFi network for AI backend, weather, solar, crypto, fires, quakes, and NTP
+- WiFi network for AI backend, weather, solar, crypto, fires, USGS earthquake data, and NTP
 
 ## Flashing
 
@@ -141,7 +141,7 @@ The firmware creates and updates this file from the device. Keep the SD card ins
 
 ### Crypto Favorites
 
-The BTC screen can load up to six CoinGecko coin IDs from the SD card root:
+The CRYPTO screen can load up to six CoinGecko coin IDs from the SD card root:
 
 ```txt
 /crypto.txt
@@ -200,7 +200,7 @@ Weather uses Open-Meteo and stores `wx_lat` and `wx_lon` in NVS after you set th
 - D: delete selected entry
 - Q: return home
 
-### BTC
+### CRYPTO
 
 - R: refresh crypto data
 - C: edit up to six CoinGecko coin ID slots on device
@@ -218,9 +218,9 @@ Weather uses Open-Meteo and stores `wx_lat` and `wx_lon` in NVS after you set th
 | --- | --- |
 | WEATHER | Open-Meteo forecast API |
 | SOLAR | NOAA/SWPC plus NASA DONKI for flares and CME data |
-| BTC | CoinGecko market data, SD/NVS favorite coin IDs, plus Alternative.me Fear & Greed |
+| CRYPTO | CoinGecko market data, SD/NVS favorite coin IDs, plus Alternative.me Fear & Greed |
 | FIRES | NASA EONET open wildfire events |
-| QUAKES | USGS earthquake feed |
+| USGS | USGS earthquake feed |
 | SYSTEM | Local ESP32/T-Deck state and brightness setting |
 | LOG | Local SD card `/logs/field.log` |
 
@@ -236,7 +236,7 @@ src/modules/weather.*     Weather dashboard and location setup
 src/modules/solar.*       Solar and space-weather dashboard
 src/modules/btc.*         Crypto dashboard and CoinGecko favorites
 src/modules/noaa.*        Field LOG module, replacing the old NOAA alert experiment
-src/modules/world.*       FIRES and QUAKES feeds
+src/modules/world.*       FIRES and USGS earthquake feeds
 src/modules/sysinfo.*     SYSTEM diagnostics
 src/net/wifi_mgr.*        WiFi/NVS/SD credential handling
 src/persona/              SD persona loading and slot selection
@@ -250,7 +250,7 @@ This release is a major UI and feature update from the earlier AI-only build:
 
 - Removed touch UI assumptions in favor of trackball navigation
 - Replaced the failed NOAA alert section with the SD-backed LOG screen
-- Added real-time FIRES and QUAKES screens
+- Added real-time FIRES and USGS earthquake screens
 - Added richer SOLAR visuals and 48h Kp forecast display
 - Added configurable CoinGecko crypto favorites and chart layout polish
 - Added SYSTEM diagnostics polish, persistent brightness control, and faster load behavior

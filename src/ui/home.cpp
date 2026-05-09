@@ -17,7 +17,7 @@ static const TileDef TILES[TILE_COUNT] = {
     { "LOG",      COL_CYAN    },
     { "CRYPTO",   COL_CYAN    },
     { "FIRES",    COL_RED     },
-    { "QUAKES",   COL_GREEN   },
+    { "USGS",     COL_GREEN   },
     { "SYSTEM",   COL_CYAN    },
 };
 
@@ -130,7 +130,7 @@ static void drawTileIcon(TFT_eSPI &t, int idx, int cx, int cy) {
         break;
     }
 
-    case 6: { // QUAKES — seismograph waveform
+    case 6: { // USGS - seismograph waveform
         int bl = cy + 3;  // baseline y
         t.drawFastHLine(cx-14, bl, 7, C);
         t.drawLine(cx-7, bl, cx-3, cy-11, C);

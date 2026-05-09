@@ -213,7 +213,7 @@ static void drawWorldHeader(const char *title, const char *countLabel, int count
 // ── Quakes screen ─────────────────────────────────────────────────────────────
 static void drawQuakesScreen() {
     s_tft->fillScreen(COL_BG);
-    drawWorldHeader("< HOME | QUAKES", "M3.5+ 30-DAY", s_quakeCount);
+    drawWorldHeader("< HOME | USGS", "M3.5+ 30-DAY", s_quakeCount);
 
     int cy = CONTENT_Y;
 
@@ -321,7 +321,7 @@ void worldInit(TFT_eSPI &tft) {
     s_showingFires = false;
     s_quakeCount   = 0;
     tft.fillScreen(COL_BG);
-    drawTopbar(tft, "< HOME | QUAKES", "", COL_CYAN);
+    drawTopbar(tft, "< HOME | USGS", "", COL_CYAN);
     if (WiFi.isConnected()) fetchQuakes();
     updateSyncStr();
     drawQuakesScreen();
