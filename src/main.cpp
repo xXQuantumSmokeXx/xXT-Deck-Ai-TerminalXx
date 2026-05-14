@@ -261,14 +261,14 @@ static void showSplash() {
     tft.fillScreen(COL_BG);
     tft.setTextFont(FONT_LARGE);
     tft.setTextColor(COL_CYAN, COL_BG);
-    tft.drawCentreString("AI TERMINAL", SCREEN_W / 2, 58, FONT_LARGE);
+    tft.drawCentreString("T-Deck-Ai-Terminal", SCREEN_W / 2, 72, FONT_LARGE);
     tft.setTextFont(FONT_MED);
     tft.setTextColor(COL_CYAN, COL_BG);
-    tft.drawCentreString("T-DECK // MayDay", SCREEN_W / 2, 100, FONT_MED);
+    tft.drawCentreString("xXMayDayXx", SCREEN_W / 2, 110, FONT_MED);
     tft.setTextFont(FONT_SMALL);
-    tft.setTextColor(COL_GREY_DIM, COL_BG);
-    tft.drawCentreString("xXQuantumSmokeXx", SCREEN_W / 2, 124, FONT_SMALL);
-    drawCornerBrackets(tft, 6, 44, SCREEN_W - 12, 100, COL_CYAN, 12);
+    tft.setTextColor(COL_CYAN, COL_BG);
+    tft.drawCentreString("xXQuantum-SmokeXx", SCREEN_W / 2, 134, FONT_SMALL);
+    drawCornerBrackets(tft, 2, 2, SCREEN_W - 4, SCREEN_H - 4, COL_CYAN, 12);
     delay(1800);
     tft.fillScreen(COL_BG);
 }
