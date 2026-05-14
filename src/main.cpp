@@ -154,6 +154,9 @@ static bool handleScreenTrackball() {
     } else if (s_screen == SCR_ALERTS) {
         for (int i = 0; i < up;   i++) noaaTrackballUp();
         for (int i = 0; i < down; i++) noaaTrackballDown();
+    } else if (s_screen == SCR_WORLD) {
+        for (int i = 0; i < up;   i++) worldTrackballUp();
+        for (int i = 0; i < down; i++) worldTrackballDown();
     }
 
     // On module screens, rolling left backs out to the launcher.

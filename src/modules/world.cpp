@@ -9,7 +9,7 @@
 #include <time.h>
 
 #define KB_ADDR    0x55
-#define MAX_ITEMS  12
+#define MAX_ITEMS  20
 #define ROW_H      16
 #define WORLD_CACHE_TTL_SEC 900
 
@@ -29,11 +29,12 @@ static QuakeItem  s_quakes[MAX_ITEMS];
 static int        s_quakeCount   = 0;
 static FireItem   s_fires[MAX_ITEMS];
 static int        s_fireCount    = 0;
-static bool       s_showingFires = false;
-static char       s_syncStr[12]  = "";
+static bool       s_showingFires  = false;
+static int        s_worldScrollOff = 0;
+static char       s_syncStr[12]   = "";
 static time_t     s_quakeFetchedAt = 0;
 static time_t     s_fireFetchedAt  = 0;
-static TFT_eSPI  *s_tft          = nullptr;
+static TFT_eSPI  *s_tft           = nullptr;
 
 // ── Keyboard ──────────────────────────────────────────────────────────────────
 static char readKeyboard() {
@@ -119,7 +120,7 @@ static bool fetchQuakes() {
     HTTPClient http;
     http.begin(cl,
         "https://earthquake.usgs.gov/fdsnws/event/1/query"
-        "?format=geojson&minmagnitude=3.5&limit=12&orderby=time");
+        "?format=geojson&minmagnitude=3.5&limit=20&orderby=time");
     http.setTimeout(15000);
     http.addHeader("User-Agent", "T-Deck-AI/1.0");
 
@@ -167,7 +168,7 @@ static bool fetchFires() {
     HTTPClient http;
     http.begin(cl,
         "https://eonet.gsfc.nasa.gov/api/v3/events"
-        "?category=wildfires&status=open&limit=12");
+        "?category=wildfires&status=open&limit=20");
     http.setTimeout(15000);
     http.addHeader("User-Agent", "T-Deck-AI/1.0");
 
@@ -211,13 +212,20 @@ static void drawWorldHeader(const char *title, const char *countLabel, int count
     s_tft->fillRect(0, TOPBAR_H, SCREEN_W, STATUSBAR_H, COL_BG);
     s_tft->setTextFont(FONT_SMALL);
     if (count > 0) {
-        char buf[28];
-        snprintf(buf, sizeof(buf), "%s: %d", countLabel, count);
+        char buf[36];
+        int visible = (int)(CONTENT_H / ROW_H);
+        if (count > visible) {
+            int from = s_worldScrollOff + 1;
+            int to   = min(s_worldScrollOff + visible, count);
+            snprintf(buf, sizeof(buf), "%s: %d-%d/%d", countLabel, from, to, count);
+        } else {
+            snprintf(buf, sizeof(buf), "%s: %d", countLabel, count);
+        }
         int w = s_tft->textWidth(buf);
         s_tft->setTextColor(COL_CYAN, COL_BG);
         s_tft->drawString(buf, SCREEN_W - w - 4, TOPBAR_H + 3);
     }
-    s_tft->drawFastHLine(0, TOPBAR_H + STATUSBAR_H - 1, SCREEN_W, COL_GREY_DIM);
+    s_tft->drawFastHLine(0, TOPBAR_H + STATUSBAR_H - 1, SCREEN_W, COL_CYAN);
     drawTopbar(*s_tft, title, s_syncStr, COL_CYAN);
 }
 
@@ -240,10 +248,11 @@ static void drawQuakesScreen() {
         return;
     }
 
-    int limit = min(s_quakeCount, (int)(CONTENT_H / ROW_H));
+    int visible = (int)(CONTENT_H / ROW_H);
+    int limit   = min(s_quakeCount - s_worldScrollOff, visible);
     for (int i = 0; i < limit; i++) {
         int y = cy + i * ROW_H;
-        QuakeItem &q = s_quakes[i];
+        QuakeItem &q = s_quakes[s_worldScrollOff + i];
         uint16_t mc = magColor(q.mag);
 
         char magBuf[8];
@@ -295,10 +304,11 @@ static void drawFiresScreen() {
         return;
     }
 
-    int limit = min(s_fireCount, (int)(CONTENT_H / ROW_H));
+    int visible = (int)(CONTENT_H / ROW_H);
+    int limit   = min(s_fireCount - s_worldScrollOff, visible);
     for (int i = 0; i < limit; i++) {
         int y = cy + i * ROW_H;
-        FireItem &fi = s_fires[i];
+        FireItem &fi = s_fires[s_worldScrollOff + i];
 
         s_tft->setTextFont(FONT_SMALL);
         s_tft->setTextColor(COL_AMBER, COL_BG);
@@ -328,8 +338,9 @@ static void drawFiresScreen() {
 
 // ── Public API ────────────────────────────────────────────────────────────────
 void worldInit(TFT_eSPI &tft) {
-    s_tft          = &tft;
-    s_showingFires = false;
+    s_tft           = &tft;
+    s_showingFires  = false;
+    s_worldScrollOff = 0;
     updateSyncStr();
     if (!cacheFresh(s_quakeFetchedAt, s_quakeCount)) {
         tft.fillScreen(COL_BG);
@@ -344,8 +355,9 @@ void worldInit(TFT_eSPI &tft) {
 }
 
 void worldInitFires(TFT_eSPI &tft) {
-    s_tft          = &tft;
-    s_showingFires = true;
+    s_tft           = &tft;
+    s_showingFires  = true;
+    s_worldScrollOff = 0;
     updateSyncStr();
     if (!cacheFresh(s_fireFetchedAt, s_fireCount)) {
         tft.fillScreen(COL_BG);
@@ -366,6 +378,7 @@ bool worldLoop(TFT_eSPI &tft) {
     if (key == 'q' || key == 'Q' || key == 27 || key == 17 || key == 8) return false;
 
     if (key == 'r' || key == 'R') {
+        s_worldScrollOff = 0;
         if (WiFi.isConnected()) {
             if (s_showingFires) fetchFires();
             else                fetchQuakes();
@@ -377,4 +390,22 @@ bool worldLoop(TFT_eSPI &tft) {
 
     delay(20);
     return true;
+}
+
+void worldTrackballUp() {
+    if (s_worldScrollOff > 0) {
+        s_worldScrollOff--;
+        if (s_showingFires) drawFiresScreen();
+        else                drawQuakesScreen();
+    }
+}
+
+void worldTrackballDown() {
+    int visible = (int)(CONTENT_H / ROW_H);
+    int total   = s_showingFires ? s_fireCount : s_quakeCount;
+    if (s_worldScrollOff < total - visible) {
+        s_worldScrollOff++;
+        if (s_showingFires) drawFiresScreen();
+        else                drawQuakesScreen();
+    }
 }
