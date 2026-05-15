@@ -1,5 +1,6 @@
 #pragma once
 #include <TFT_eSPI.h>
+#include "theme_color.h"
 
 // ── Screen dimensions ─────────────────────────────────────────────────────────
 #define SCREEN_W  320
@@ -22,7 +23,7 @@
 #define COL_GREEN     0x07C0  // #00F800 — world/intel tile
 
 // Chat agent colors
-#define COL_YOU   COL_CYAN
+#define COL_YOU   g_themeColor
 #define COL_SYS   COL_GREY_MID
 
 // ── Typography ────────────────────────────────────────────────────────────────

@@ -74,7 +74,7 @@ static int kpAuroraLat(float kp) {
 }
 
 static uint16_t kpColor(float kp) {
-    if (kp < 3) return COL_CYAN;
+    if (kp < 3) return g_themeColor;
     if (kp < 5) return COL_AMBER;
     return COL_RED;
 }
@@ -502,12 +502,12 @@ static void drawSolarScreen() {
         else if (h == 0) h = 12;
         snprintf(rightBuf, sizeof(rightBuf), "%d:%02d %s", h, ti.tm_min, ap);
     }
-    drawTopbar(*s_tft, "< HOME | SOLAR", rightBuf, COL_CYAN);
+    drawTopbar(*s_tft, "< HOME | SOLAR", rightBuf, g_themeColor);
 
     s_tft->fillRect(0, TOPBAR_H, SCREEN_W, STATUSBAR_H, COL_BG);
     s_tft->setTextFont(FONT_SMALL);
     if (s_sol.valid) {
-        s_tft->setTextColor(s_sol.fromCache ? COL_AMBER : COL_CYAN, COL_BG);
+        s_tft->setTextColor(s_sol.fromCache ? COL_AMBER : g_themeColor, COL_BG);
         s_tft->drawString(s_sol.syncStr, 4, TOPBAR_H + 3);
         char kpLbl[24];
         snprintf(kpLbl, sizeof(kpLbl), "Kp %.1f  %s", s_sol.kpCurrent, kpCondition(s_sol.kpCurrent));
@@ -515,16 +515,16 @@ static void drawSolarScreen() {
         s_tft->setTextColor(kpColor(s_sol.kpCurrent), COL_BG);
         s_tft->drawString(kpLbl, SCREEN_W - w - 4, TOPBAR_H + 3);
     }
-    s_tft->drawFastHLine(0, TOPBAR_H + STATUSBAR_H - 1, SCREEN_W, COL_CYAN);
+    s_tft->drawFastHLine(0, TOPBAR_H + STATUSBAR_H - 1, SCREEN_W, g_themeColor);
 
     int cy = CONTENT_Y + 2;
 
     if (!s_sol.valid) {
         s_tft->setTextFont(FONT_MED);
-        s_tft->setTextColor(COL_CYAN, COL_BG);
+        s_tft->setTextColor(g_themeColor, COL_BG);
         s_tft->drawCentreString("NO DATA", SCREEN_W / 2, cy + 30, FONT_MED);
         s_tft->setTextFont(FONT_SMALL);
-        s_tft->setTextColor(COL_CYAN, COL_BG);
+        s_tft->setTextColor(g_themeColor, COL_BG);
         s_tft->drawCentreString("OFFLINE - no cache available", SCREEN_W / 2, cy + 52, FONT_SMALL);
         s_tft->drawCentreString("Q=home  R=retry", SCREEN_W / 2, SCREEN_H - 12, FONT_SMALL);
         return;
@@ -533,7 +533,7 @@ static void drawSolarScreen() {
     // ── Left: big Kp ─────────────────────────────────────────────────────────
     uint16_t kpCol = kpColor(s_sol.kpCurrent);
     s_tft->setTextFont(FONT_SMALL);
-    s_tft->setTextColor(COL_CYAN, COL_BG);
+    s_tft->setTextColor(g_themeColor, COL_BG);
     s_tft->drawString("Kp INDEX", 4, cy);
 
     char kpBuf[6];
@@ -548,7 +548,7 @@ static void drawSolarScreen() {
 
     char auroraLbl[16];
     snprintf(auroraLbl, sizeof(auroraLbl), "AURORA ~%dN", kpAuroraLat(s_sol.kpCurrent));
-    s_tft->setTextColor(COL_CYAN, COL_BG);
+    s_tft->setTextColor(g_themeColor, COL_BG);
     s_tft->drawString(auroraLbl, 4, cy + 48);
 
     // ── Right: 6 stats at 9px spacing ────────────────────────────────────────
@@ -563,7 +563,7 @@ static void drawSolarScreen() {
     bool bzValid = windValid || s_sol.bzNT != 0.0f;
     if (bzValid) snprintf(stats[1].val, 18, s_sol.bzNT < 0 ? "%.1f nT v" : "%.1f nT ^", s_sol.bzNT);
     else         strlcpy(stats[1].val, "---", 18);
-    stats[1].lbl = "Bz"; stats[1].col = (!bzValid) ? COL_GREY_MID : (s_sol.bzNT < 0 ? COL_RED : COL_CYAN);
+    stats[1].lbl = "Bz"; stats[1].col = (!bzValid) ? COL_GREY_MID : (s_sol.bzNT < 0 ? COL_RED : g_themeColor);
 
     bool densValid = s_sol.densityPcc > 0;
     if (densValid) snprintf(stats[2].val, 18, "%.1f p/cc", s_sol.densityPcc);
@@ -585,7 +585,7 @@ static void drawSolarScreen() {
     for (int i = 0; i < 6; i++) {
         int sy = cy + i * 9;
         s_tft->setTextFont(FONT_SMALL);
-        s_tft->setTextColor(COL_CYAN, COL_BG);
+        s_tft->setTextColor(g_themeColor, COL_BG);
         s_tft->drawString(stats[i].lbl, rx, sy);
         s_tft->setTextColor(stats[i].col, COL_BG);
         s_tft->drawString(stats[i].val, rx + 32, sy);
@@ -594,9 +594,9 @@ static void drawSolarScreen() {
     // -- 24h Kp bar chart -----------------------------------------------------
     int bottomY = SCREEN_H - BOTTOMBAR_H;
     int chartY = cy + 58;
-    s_tft->drawFastHLine(0, chartY - 2, SCREEN_W, COL_CYAN);
+    s_tft->drawFastHLine(0, chartY - 2, SCREEN_W, g_themeColor);
     s_tft->setTextFont(FONT_SMALL);
-    s_tft->setTextColor(COL_CYAN, COL_BG);
+    s_tft->setTextColor(g_themeColor, COL_BG);
     s_tft->drawString("24H Kp", 4, chartY);
 
     int barAreaY = chartY + 10;
@@ -613,24 +613,24 @@ static void drawSolarScreen() {
         int x = barStartX + i * (barW + barGap);
         int y = barAreaY + barMaxH - barH;
         uint16_t bc = kpColor(kp);
-        s_tft->drawRect(x, barAreaY, barW, barMaxH, COL_CYAN);
+        s_tft->drawRect(x, barAreaY, barW, barMaxH, g_themeColor);
         s_tft->fillRect(x + 1, y, barW - 2, barH, bc);
         char kpN[4]; snprintf(kpN, sizeof(kpN), "%.0f", kp);
         int lw = s_tft->textWidth(kpN);
         s_tft->setTextFont(FONT_SMALL);
-        s_tft->setTextColor(COL_CYAN, COL_BG);
+        s_tft->setTextColor(g_themeColor, COL_BG);
         s_tft->drawString(kpN, x + (barW - lw) / 2, histLabelY);
     }
     s_tft->setTextFont(FONT_SMALL);
-    s_tft->setTextColor(COL_CYAN, COL_BG);
+    s_tft->setTextColor(g_themeColor, COL_BG);
     s_tft->drawString("9", barStartX - 8, barAreaY);
     s_tft->drawString("0", barStartX - 8, barAreaY + barMaxH - 6);
 
     // -- 48h Kp forecast ------------------------------------------------------
     int foreY = histLabelY + 11;
-    s_tft->drawFastHLine(0, foreY - 2, SCREEN_W, COL_CYAN);
+    s_tft->drawFastHLine(0, foreY - 2, SCREEN_W, g_themeColor);
     s_tft->setTextFont(FONT_SMALL);
-    s_tft->setTextColor(COL_CYAN, COL_BG);
+    s_tft->setTextColor(g_themeColor, COL_BG);
     s_tft->drawString("48H FORECAST", 4, foreY);
 
     int count = min(s_sol.forecastCount, 7);
@@ -647,11 +647,11 @@ static void drawSolarScreen() {
         int barH = (int)(kp / 9.0f * fBarH);
         if (barH < 2) barH = 2;
 
-        s_tft->drawRect(x + 4, fBarY, cellW - 8, fBarH, COL_CYAN);
+        s_tft->drawRect(x + 4, fBarY, cellW - 8, fBarH, g_themeColor);
         s_tft->fillRect(x + 5, fBarY + fBarH - barH, cellW - 10, barH - 1, fc);
 
         s_tft->setTextFont(FONT_SMALL);
-        s_tft->setTextColor(COL_CYAN, COL_BG);
+        s_tft->setTextColor(g_themeColor, COL_BG);
         int tw = s_tft->textWidth(s_sol.forecast[i].hhmm);
         s_tft->drawString(s_sol.forecast[i].hhmm, cx - tw / 2, timeY);
 
@@ -660,7 +660,7 @@ static void drawSolarScreen() {
         int kw = s_tft->textWidth(kpN);
         s_tft->drawString(kpN, cx - kw / 2, forecastLabelY);
 
-        if (i < count - 1) s_tft->drawFastVLine(x + cellW - 1, foreY + 1, bottomY - foreY - 2, COL_CYAN);
+        if (i < count - 1) s_tft->drawFastVLine(x + cellW - 1, foreY + 1, bottomY - foreY - 2, g_themeColor);
     }
     // ── Alert / hint bar — fixed at screen bottom ─────────────────────────────
     int g = kpGLevel(s_sol.kpCurrent);
@@ -686,10 +686,10 @@ static void drawSolarScreen() {
         s_tft->setTextColor(COL_BG, COL_AMBER);
         s_tft->drawCentreString("Bz SOUTHWARD - LoRa IMPACT POSSIBLE", SCREEN_W / 2, bottomY + 3, FONT_SMALL);
     } else {
-        s_tft->drawFastHLine(0, bottomY, SCREEN_W, COL_CYAN);
-        s_tft->drawFastHLine(0, SCREEN_H - 1, SCREEN_W, COL_CYAN);
+        s_tft->drawFastHLine(0, bottomY, SCREEN_W, g_themeColor);
+        s_tft->drawFastHLine(0, SCREEN_H - 1, SCREEN_W, g_themeColor);
         s_tft->setTextFont(FONT_SMALL);
-        s_tft->setTextColor(COL_CYAN, COL_BG);
+        s_tft->setTextColor(g_themeColor, COL_BG);
         s_tft->drawCentreString("Q=home  R=refresh", SCREEN_W / 2, bottomY + 3, FONT_SMALL);
         drawBatteryIndicatorRight(*s_tft, bottomY + 1);
     }
@@ -711,9 +711,9 @@ void solarInit(TFT_eSPI &tft) {
 
     // Show loading indicator only when no valid cache is available.
     tft.fillScreen(COL_BG);
-    drawTopbar(tft, "< HOME | SOLAR", "", COL_CYAN);
+    drawTopbar(tft, "< HOME | SOLAR", "", g_themeColor);
     tft.setTextFont(FONT_SMALL);
-    tft.setTextColor(COL_CYAN, COL_BG);
+    tft.setTextColor(g_themeColor, COL_BG);
     tft.drawCentreString("Fetching solar data...", SCREEN_W / 2, SCREEN_H / 2, FONT_SMALL);
 
     if (WiFi.isConnected()) fetchAllData();

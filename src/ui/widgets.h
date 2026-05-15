@@ -48,19 +48,19 @@ inline void drawStatusBar(TFT_eSPI &tft, bool wifiOk, bool loraOk, const char *c
     int x = 4;
 
     // WiFi dot
-    tft.setTextColor(wifiOk ? COL_CYAN : COL_GREY_DIM, COL_BG);
+    tft.setTextColor(wifiOk ? g_themeColor : COL_GREY_DIM, COL_BG);
     tft.drawString("WiFi \xB7", x, TOPBAR_H + 2);
     x += tft.textWidth("WiFi \xB7") + 6;
 
     // Crew tag
     if (crewTag && crewTag[0]) {
-        tft.setTextColor(COL_CYAN, COL_BG);
+        tft.setTextColor(g_themeColor, COL_BG);
         tft.drawString(crewTag, x, TOPBAR_H + 2);
     }
 
     (void)kp;  // Kp removed from home status bar
 
-    tft.drawFastHLine(0, TOPBAR_H + STATUSBAR_H - 1, SCREEN_W, COL_CYAN);
+    tft.drawFastHLine(0, TOPBAR_H + STATUSBAR_H - 1, SCREEN_W, g_themeColor);
 }
 
 // ── Bottom bar ────────────────────────────────────────────────────────────────
@@ -93,7 +93,7 @@ inline int batteryPercentFromMv(int mv) {
     return (mv - 3300) * 100 / 900;
 }
 
-inline void drawBatteryIndicator(TFT_eSPI &tft, int x, int y, uint16_t fg = COL_CYAN, uint16_t bg = COL_BG) {
+inline void drawBatteryIndicator(TFT_eSPI &tft, int x, int y, uint16_t fg = g_themeColor, uint16_t bg = COL_BG) {
     int pct = batteryPercentFromMv(readTDeckBatteryMv());
     tft.setTextFont(FONT_SMALL);
     tft.setTextColor(fg, bg);
@@ -111,7 +111,7 @@ inline void drawBatteryIndicator(TFT_eSPI &tft, int x, int y, uint16_t fg = COL_
     if (fillW > 0) tft.fillRect(iconX + 2, iconY + 2, fillW, 5, fg);
 }
 
-inline void drawBatteryIndicatorRight(TFT_eSPI &tft, int y, uint16_t fg = COL_CYAN, uint16_t bg = COL_BG) {
+inline void drawBatteryIndicatorRight(TFT_eSPI &tft, int y, uint16_t fg = g_themeColor, uint16_t bg = COL_BG) {
     int pct = batteryPercentFromMv(readTDeckBatteryMv());
     tft.setTextFont(FONT_SMALL);
 
@@ -134,7 +134,7 @@ inline String footerDisplayName() {
     return name;
 }
 
-inline void drawFooterName(TFT_eSPI &tft, int y, uint16_t fg = COL_CYAN, uint16_t bg = COL_BG) {
+inline void drawFooterName(TFT_eSPI &tft, int y, uint16_t fg = g_themeColor, uint16_t bg = COL_BG) {
     String name = footerDisplayName();
     tft.setTextFont(FONT_SMALL);
     tft.setTextColor(fg, bg);
@@ -143,10 +143,10 @@ inline void drawFooterName(TFT_eSPI &tft, int y, uint16_t fg = COL_CYAN, uint16_
 inline void drawBottomBar(TFT_eSPI &tft, const char *left, bool blinkState) {
     int y = SCREEN_H - BOTTOMBAR_H;
     tft.fillRect(0, y, SCREEN_W, BOTTOMBAR_H, COL_BG);
-    tft.drawFastHLine(0, y, SCREEN_W, COL_CYAN);
-    tft.drawFastHLine(0, SCREEN_H - 1, SCREEN_W, COL_CYAN);
+    tft.drawFastHLine(0, y, SCREEN_W, g_themeColor);
+    tft.drawFastHLine(0, SCREEN_H - 1, SCREEN_W, g_themeColor);
     tft.setTextFont(FONT_SMALL);
-    tft.setTextColor(COL_CYAN, COL_BG);
+    tft.setTextColor(g_themeColor, COL_BG);
     if (left && left[0]) tft.drawString(left, 4, y + 3);
     else drawFooterName(tft, y);
     drawBatteryIndicatorRight(tft, y + 1);

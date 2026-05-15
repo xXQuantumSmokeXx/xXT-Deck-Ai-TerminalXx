@@ -52,12 +52,12 @@ static String btcReadLine(const char *prompt) {
     String buf = "";
     s_tft->fillScreen(COL_BG);
     s_tft->setTextFont(FONT_SMALL);
-    s_tft->setTextColor(COL_CYAN, COL_BG);
+    s_tft->setTextColor(g_themeColor, COL_BG);
     s_tft->drawString(prompt, 2, 10);
     auto redraw = [&]() {
         s_tft->fillRect(0, 26, SCREEN_W, 16, COL_BG);
         s_tft->setTextFont(FONT_SMALL);
-        s_tft->setTextColor(COL_CYAN, COL_BG);
+        s_tft->setTextColor(g_themeColor, COL_BG);
         s_tft->drawString(buf + "_", 2, 28);
     };
     redraw();
@@ -296,7 +296,7 @@ static void fetchFearGreed() {
 }
 
 static uint16_t fgColor(int v) {
-    return COL_CYAN;
+    return g_themeColor;
 }
 
 // ── Load: network then cache ──────────────────────────────────────────────────
@@ -331,7 +331,7 @@ static void drawSparkline(int x, int y, int w, int h, const CoinData &c) {
     float range = mx - mn;
     if (range < 1e-6f) range = 1.0f;
 
-    uint16_t col = c.change7d >= 0 ? COL_CYAN : COL_RED;
+    uint16_t col = c.change7d >= 0 ? g_themeColor : COL_RED;
 
     int px = -1, py = -1;
     for (int i = 0; i < c.sparkCount; i++) {
@@ -343,7 +343,7 @@ static void drawSparkline(int x, int y, int w, int h, const CoinData &c) {
         px = cx; py = cy;
     }
     // Baseline
-    s_tft->drawFastHLine(x, y + h, w, COL_CYAN);
+    s_tft->drawFastHLine(x, y + h, w, g_themeColor);
 }
 
 // ── Screen drawing ────────────────────────────────────────────────────────────
@@ -369,12 +369,12 @@ static void drawBtcScreen() {
         else if (h == 0) h = 12;
         snprintf(rightBuf, sizeof(rightBuf), "%d:%02d %s", h, ti.tm_min, ap);
     }
-    drawTopbar(*s_tft, "< HOME | CRYPTO", rightBuf, COL_CYAN);
+    drawTopbar(*s_tft, "< HOME | CRYPTO", rightBuf, g_themeColor);
 
     // Status bar
     s_tft->fillRect(0, TOPBAR_H, SCREEN_W, STATUSBAR_H, COL_BG);
     s_tft->setTextFont(FONT_SMALL);
-    s_tft->setTextColor(COL_CYAN, COL_BG);
+    s_tft->setTextColor(g_themeColor, COL_BG);
     s_tft->drawString("COINGECKO", 4, TOPBAR_H + 3);
 
     // Fear & Greed centre
@@ -393,19 +393,19 @@ static void drawBtcScreen() {
         char syncBuf[24];
         snprintf(syncBuf, sizeof(syncBuf), "%s %s", s_fromCache ? "CACHED" : "LIVE", s_syncTime);
         int sw = s_tft->textWidth(syncBuf);
-        s_tft->setTextColor(s_fromCache ? COL_AMBER : COL_CYAN, COL_BG);
+        s_tft->setTextColor(s_fromCache ? COL_AMBER : g_themeColor, COL_BG);
         s_tft->drawString(syncBuf, SCREEN_W - sw - 4, TOPBAR_H + 3);
     }
-    s_tft->drawFastHLine(0, TOPBAR_H + STATUSBAR_H - 1, SCREEN_W, COL_CYAN);
+    s_tft->drawFastHLine(0, TOPBAR_H + STATUSBAR_H - 1, SCREEN_W, g_themeColor);
 
     int contentY = TOPBAR_H + STATUSBAR_H;
 
     if (!anyValid) {
         s_tft->setTextFont(FONT_MED);
-        s_tft->setTextColor(COL_CYAN, COL_BG);
+        s_tft->setTextColor(g_themeColor, COL_BG);
         s_tft->drawCentreString("NO DATA", SCREEN_W / 2, contentY + 40, FONT_MED);
         s_tft->setTextFont(FONT_SMALL);
-        s_tft->setTextColor(COL_CYAN, COL_BG);
+        s_tft->setTextColor(g_themeColor, COL_BG);
         s_tft->drawCentreString("OFFLINE - no cache available", SCREEN_W / 2, contentY + 62, FONT_SMALL);
         s_tft->drawCentreString("Q=home  R=retry  C=coins", SCREEN_W / 2, SCREEN_H - 12, FONT_SMALL);
         return;
@@ -427,11 +427,11 @@ static void drawBtcScreen() {
             int ry = contentY + i * rowHCompact;
             const CoinData &c = s_coins[i];
 
-            if (i > 0) s_tft->drawFastHLine(0, ry, SCREEN_W, COL_CYAN);
+            if (i > 0) s_tft->drawFastHLine(0, ry, SCREEN_W, g_themeColor);
 
             if (!c.valid) {
                 s_tft->setTextFont(FONT_SMALL);
-                s_tft->setTextColor(COL_CYAN, COL_BG);
+                s_tft->setTextColor(g_themeColor, COL_BG);
                 char buf[36];
                 snprintf(buf, sizeof(buf), "%.30s: NOT FOUND", s_coins[i].id);
                 s_tft->drawString(buf, 4, ry + 8);
@@ -446,28 +446,28 @@ static void drawBtcScreen() {
             snprintf(chg7d, sizeof(chg7d), "%+.1f%%", c.change7d);
 
             s_tft->setTextFont(FONT_MED);
-            s_tft->setTextColor(COL_CYAN, COL_BG);
+            s_tft->setTextColor(g_themeColor, COL_BG);
             s_tft->drawString(c.symbol, 4, ry + 4);
 
-            s_tft->setTextColor(COL_CYAN, COL_BG);
+            s_tft->setTextColor(g_themeColor, COL_BG);
             s_tft->drawString(priceBuf, 70, ry + 4);
 
             s_tft->setTextFont(FONT_SMALL);
-            s_tft->setTextColor(c.change24h >= 0 ? COL_CYAN : COL_RED, COL_BG);
+            s_tft->setTextColor(c.change24h >= 0 ? g_themeColor : COL_RED, COL_BG);
             s_tft->drawString(chg24, 190, ry + 4);
-            s_tft->setTextColor(c.change7d >= 0 ? COL_CYAN : COL_RED, COL_BG);
+            s_tft->setTextColor(c.change7d >= 0 ? g_themeColor : COL_RED, COL_BG);
             s_tft->drawString(chg7d, 252, ry + 4);
 
-            s_tft->setTextColor(COL_CYAN, COL_BG);
+            s_tft->setTextColor(g_themeColor, COL_BG);
             s_tft->drawString("24H", 190, ry + 16);
             s_tft->drawString("7D", 252, ry + 16);
         }
 
         int ya = SCREEN_H - BOTTOMBAR_H;
-        s_tft->drawFastHLine(0, ya, SCREEN_W, COL_CYAN);
-        s_tft->drawFastHLine(0, SCREEN_H - 1, SCREEN_W, COL_CYAN);
+        s_tft->drawFastHLine(0, ya, SCREEN_W, g_themeColor);
+        s_tft->drawFastHLine(0, SCREEN_H - 1, SCREEN_W, g_themeColor);
         s_tft->setTextFont(FONT_SMALL);
-        s_tft->setTextColor(COL_CYAN, COL_BG);
+        s_tft->setTextColor(g_themeColor, COL_BG);
         s_tft->drawCentreString("Q=home  R=refresh  C=coins", SCREEN_W / 2, ya + 3, FONT_SMALL);
         return;
     }
@@ -475,11 +475,11 @@ static void drawBtcScreen() {
         int ry = contentY + i * rowH;
         const CoinData &c = s_coins[i];
 
-        if (i > 0) s_tft->drawFastHLine(0, ry, SCREEN_W, COL_CYAN);
+        if (i > 0) s_tft->drawFastHLine(0, ry, SCREEN_W, g_themeColor);
 
         if (!c.valid) {
             s_tft->setTextFont(FONT_SMALL);
-            s_tft->setTextColor(COL_CYAN, COL_BG);
+            s_tft->setTextColor(g_themeColor, COL_BG);
             char buf[32];
             snprintf(buf, sizeof(buf), "%.30s: NOT FOUND", s_coins[i].id);
             s_tft->drawString(buf, 4, ry + rowH / 2 - 4);
@@ -489,13 +489,13 @@ static void drawBtcScreen() {
         // ── Left text block (x = 0..168) ─────────────────────────────────────
         // Symbol
         s_tft->setTextFont(FONT_MED);
-        s_tft->setTextColor(COL_CYAN, COL_BG);
+        s_tft->setTextColor(g_themeColor, COL_BG);
         s_tft->drawString(c.symbol, 4, ry + 4);
         int symW = s_tft->textWidth(c.symbol);
 
         // Name (grey, same line, right of symbol)
         s_tft->setTextFont(FONT_SMALL);
-        s_tft->setTextColor(COL_CYAN, COL_BG);
+        s_tft->setTextColor(g_themeColor, COL_BG);
         char truncName[18];
         strlcpy(truncName, c.name, sizeof(truncName));
         s_tft->drawString(truncName, 4 + symW + 4, ry + 8);
@@ -504,7 +504,7 @@ static void drawBtcScreen() {
         char priceBuf[20];
         formatPrice(c.priceUsd, priceBuf, sizeof(priceBuf));
         s_tft->setTextFont(FONT_LARGE);
-        s_tft->setTextColor(COL_CYAN, COL_BG);
+        s_tft->setTextColor(g_themeColor, COL_BG);
         s_tft->drawString(priceBuf, 4, ry + 22);
 
         const int changeLabelX = 126;
@@ -514,25 +514,25 @@ static void drawBtcScreen() {
         char chg24[16];
         snprintf(chg24, sizeof(chg24), "%+.2f%%", c.change24h);
         s_tft->setTextFont(FONT_MED);
-        s_tft->setTextColor(c.change24h >= 0 ? COL_CYAN : COL_RED, COL_BG);
+        s_tft->setTextColor(c.change24h >= 0 ? g_themeColor : COL_RED, COL_BG);
         s_tft->drawString(chg24, changeValueRight - s_tft->textWidth(chg24), ry + 52);
 
         // "24H" label
         s_tft->setTextFont(FONT_SMALL);
-        s_tft->setTextColor(COL_CYAN, COL_BG);
+        s_tft->setTextColor(g_themeColor, COL_BG);
         s_tft->drawString("24H", changeLabelX, ry + 56);
 
         // 7d change
         char chg7d[16];
         snprintf(chg7d, sizeof(chg7d), "%+.2f%%", c.change7d);
         s_tft->setTextFont(FONT_SMALL);
-        s_tft->setTextColor(c.change7d >= 0 ? COL_CYAN : COL_RED, COL_BG);
+        s_tft->setTextColor(c.change7d >= 0 ? g_themeColor : COL_RED, COL_BG);
         s_tft->drawString(chg7d, changeValueRight - s_tft->textWidth(chg7d), ry + 70);
-        s_tft->setTextColor(COL_CYAN, COL_BG);
+        s_tft->setTextColor(g_themeColor, COL_BG);
         s_tft->drawString("7D", changeLabelX, ry + 70);
 
         // ── Divider between text and sparkline ────────────────────────────────
-        s_tft->drawFastVLine(170, ry + 2, rowH - 4, COL_CYAN);
+        s_tft->drawFastVLine(170, ry + 2, rowH - 4, g_themeColor);
 
         // ── Right: 7-day sparkline (x = 174..315) ────────────────────────────
         int sx = 174, sy = ry + 8;
@@ -542,16 +542,16 @@ static void drawBtcScreen() {
 
         // Sparkline period label
         s_tft->setTextFont(FONT_SMALL);
-        s_tft->setTextColor(COL_CYAN, COL_BG);
+        s_tft->setTextColor(g_themeColor, COL_BG);
         s_tft->drawString("7D", sx, ry + rowH - 12);
     }
 
     // ── Hint bar ─────────────────────────────────────────────────────────────
     int ya = SCREEN_H - BOTTOMBAR_H;
-    s_tft->drawFastHLine(0, ya, SCREEN_W, COL_CYAN);
-    s_tft->drawFastHLine(0, SCREEN_H - 1, SCREEN_W, COL_CYAN);
+    s_tft->drawFastHLine(0, ya, SCREEN_W, g_themeColor);
+    s_tft->drawFastHLine(0, SCREEN_H - 1, SCREEN_W, g_themeColor);
     s_tft->setTextFont(FONT_SMALL);
-    s_tft->setTextColor(COL_CYAN, COL_BG);
+    s_tft->setTextColor(g_themeColor, COL_BG);
     s_tft->drawCentreString("Q=home  R=refresh  C=coins", SCREEN_W / 2, ya + 3, FONT_SMALL);
 }
 
@@ -600,9 +600,9 @@ void btcInit(TFT_eSPI &tft) {
     // Show loading screen BEFORE any SD operations so the TFT clear runs
     // while the SPI bus is in a known TFT state (mirrors world.cpp pattern).
     tft.fillScreen(COL_BG);
-    drawTopbar(tft, "< HOME | CRYPTO", "", COL_CYAN);
+    drawTopbar(tft, "< HOME | CRYPTO", "", g_themeColor);
     tft.setTextFont(FONT_SMALL);
-    tft.setTextColor(COL_CYAN, COL_BG);
+    tft.setTextColor(g_themeColor, COL_BG);
     tft.drawCentreString("Fetching crypto data...", SCREEN_W / 2, SCREEN_H / 2, FONT_SMALL);
 
     // SD ops: read coin list + check cache

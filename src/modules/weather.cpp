@@ -347,22 +347,22 @@ static void drawWeatherScreen() {
         else if (h == 0) h = 12;
         snprintf(rightBuf, sizeof(rightBuf), "%d:%02d %s", h, ti.tm_min, ap);
     }
-    drawTopbar(*s_tft, "< HOME | WEATHER", rightBuf, COL_CYAN);
+    drawTopbar(*s_tft, "< HOME | WEATHER", rightBuf, g_themeColor);
 
     // Status bar: location left, sync time right
     s_tft->fillRect(0, TOPBAR_H, SCREEN_W, STATUSBAR_H, COL_BG);
     s_tft->setTextFont(FONT_SMALL);
-    s_tft->setTextColor(COL_CYAN, COL_BG);
+    s_tft->setTextColor(g_themeColor, COL_BG);
     s_tft->drawString(s_wx.locationName, 4, TOPBAR_H + 3);
     if (s_wx.valid) {
         char syncBuf[24];
         snprintf(syncBuf, sizeof(syncBuf), "%s %s",
                  s_wx.fromCache ? "CACHED" : "LIVE", s_wx.syncTime);
         int sw = s_tft->textWidth(syncBuf);
-        s_tft->setTextColor(s_wx.fromCache ? COL_AMBER : COL_CYAN, COL_BG);
+        s_tft->setTextColor(s_wx.fromCache ? COL_AMBER : g_themeColor, COL_BG);
         s_tft->drawString(syncBuf, SCREEN_W - sw - 4, TOPBAR_H + 3);
     }
-    s_tft->drawFastHLine(0, TOPBAR_H + STATUSBAR_H - 1, SCREEN_W, COL_CYAN);
+    s_tft->drawFastHLine(0, TOPBAR_H + STATUSBAR_H - 1, SCREEN_W, g_themeColor);
 
     // fillScreen is unreliable after SD SPI ops — secondary fillRect clears what it missed.
     s_tft->fillRect(0, CONTENT_Y, SCREEN_W, SCREEN_H - CONTENT_Y, COL_BG);
@@ -371,10 +371,10 @@ static void drawWeatherScreen() {
 
     if (!s_wx.valid) {
         s_tft->setTextFont(FONT_MED);
-        s_tft->setTextColor(COL_CYAN, COL_BG);
+        s_tft->setTextColor(g_themeColor, COL_BG);
         s_tft->drawCentreString("NO DATA", SCREEN_W / 2, y + 30, FONT_MED);
         s_tft->setTextFont(FONT_SMALL);
-        s_tft->setTextColor(COL_CYAN, COL_BG);
+        s_tft->setTextColor(g_themeColor, COL_BG);
         s_tft->drawCentreString("OFFLINE - no cache available", SCREEN_W / 2, y + 55, FONT_SMALL);
         s_tft->drawCentreString("Q=home  R=retry  L=set location", SCREEN_W / 2, SCREEN_H - 18, FONT_SMALL);
         return;
@@ -390,22 +390,22 @@ static void drawWeatherScreen() {
     // Degree F label next to temp
     int tempW = s_tft->textWidth(tempBuf);
     s_tft->setTextFont(FONT_MED);
-    s_tft->setTextColor(COL_CYAN, COL_BG);
+    s_tft->setTextColor(g_themeColor, COL_BG);
     s_tft->drawString("F", 6 + tempW + 2, y + 4);
 
     // Condition icon (right side of temp block) — vector, sz=2
-    drawWxIcon(SCREEN_W * 2 / 3 + 22, y + 18, s_wx.code, COL_CYAN, 2);
+    drawWxIcon(SCREEN_W * 2 / 3 + 22, y + 18, s_wx.code, g_themeColor, 2);
 
     // Condition text
     int y2 = y + 30;
     s_tft->setTextFont(FONT_MED);
-    s_tft->setTextColor(COL_CYAN, COL_BG);
+    s_tft->setTextColor(g_themeColor, COL_BG);
     s_tft->drawString(weatherDesc(s_wx.code), 6, y2);
 
     // Feels like
     int y3 = y2 + 18;
     s_tft->setTextFont(FONT_SMALL);
-    s_tft->setTextColor(COL_CYAN, COL_BG);
+    s_tft->setTextColor(g_themeColor, COL_BG);
     char flBuf[20];
     snprintf(flBuf, sizeof(flBuf), "feels like %d F", (int)roundf(s_wx.feelsLikeF));
     s_tft->drawString(flBuf, 6, y3);
@@ -422,7 +422,7 @@ static void drawWeatherScreen() {
 
     for (int i = 0; i < 4; i++) {
         int x = i * 80 + 4;
-        s_tft->setTextColor(COL_CYAN, COL_BG);
+        s_tft->setTextColor(g_themeColor, COL_BG);
         s_tft->drawString(stats[i].label, x, ys);
         s_tft->setTextColor(COL_WHITE, COL_BG);
         s_tft->drawString(stats[i].val, x, ys + 10);
@@ -430,7 +430,7 @@ static void drawWeatherScreen() {
 
     // ── Divider ───────────────────────────────────────────────────────────────
     int yd = ys + 24;
-    s_tft->drawFastHLine(0, yd, SCREEN_W, COL_CYAN);
+    s_tft->drawFastHLine(0, yd, SCREEN_W, g_themeColor);
 
     // ── 5-day forecast strip ─────────────────────────────────────────────────
     // Icons are sz=2 for visibility. Layout fills to near-bottom so the
@@ -442,12 +442,12 @@ static void drawWeatherScreen() {
 
         // Day name (today = cyan, others = grey)
         s_tft->setTextFont(FONT_SMALL);
-        s_tft->setTextColor(COL_CYAN, COL_BG);
+        s_tft->setTextColor(g_themeColor, COL_BG);
         int lw = s_tft->textWidth(s_wx.dayName[i]);
         s_tft->drawString(s_wx.dayName[i], x - lw / 2, yf + 1);
 
         // Icon — sz=2 for larger display; center at yf+26 clears day-name text
-        drawWxIcon(x, yf + 32, s_wx.dayCode[i], COL_CYAN, 2);
+        drawWxIcon(x, yf + 32, s_wx.dayCode[i], g_themeColor, 2);
 
         // Hi / lo temps below icon
         s_tft->setTextFont(FONT_SMALL);
@@ -458,15 +458,15 @@ static void drawWeatherScreen() {
         int lw2 = s_tft->textWidth(lo);
         s_tft->setTextColor(COL_WHITE, COL_BG);
         s_tft->drawString(hi, x - hw  / 2, yf + 60);
-        s_tft->setTextColor(COL_CYAN, COL_BG);
+        s_tft->setTextColor(g_themeColor, COL_BG);
         s_tft->drawString(lo, x - lw2 / 2, yf + 72);
 
         // Vertical divider between columns (except last)
-        if (i < 4) s_tft->drawFastVLine(x + colW / 2, yf - 1, 90, COL_CYAN);
+        if (i < 4) s_tft->drawFastVLine(x + colW / 2, yf - 1, 90, g_themeColor);
     }
 
     // Horizontal separator at forecast bottom
-    s_tft->drawFastHLine(0, yf + 88, SCREEN_W, COL_CYAN);
+    s_tft->drawFastHLine(0, yf + 88, SCREEN_W, g_themeColor);
 
     // ── Alert / hint bar — pinned to screen bottom ────────────────────────────
     int ya = SCREEN_H - BOTTOMBAR_H;
@@ -480,10 +480,10 @@ static void drawWeatherScreen() {
         int aw = s_tft->textWidth(alertText);
         s_tft->drawString(alertText, (SCREEN_W - aw) / 2, ya + 3);
     } else {
-        s_tft->drawFastHLine(0, ya, SCREEN_W, COL_CYAN);
-        s_tft->drawFastHLine(0, SCREEN_H - 1, SCREEN_W, COL_CYAN);
+        s_tft->drawFastHLine(0, ya, SCREEN_W, g_themeColor);
+        s_tft->drawFastHLine(0, SCREEN_H - 1, SCREEN_W, g_themeColor);
         s_tft->setTextFont(FONT_SMALL);
-        s_tft->setTextColor(COL_CYAN, COL_BG);
+        s_tft->setTextColor(g_themeColor, COL_BG);
         s_tft->drawCentreString("Q=home  R=refresh  L=location", SCREEN_W / 2, ya + 3, FONT_SMALL);
         drawBatteryIndicatorRight(*s_tft, ya + 1);
     }
@@ -513,9 +513,9 @@ void weatherInit(TFT_eSPI &tft) {
     // Show loading screen BEFORE any SD operations so the TFT clear runs
     // while the SPI bus is in a known TFT state (mirrors world.cpp pattern).
     tft.fillScreen(COL_BG);
-    drawTopbar(tft, "< HOME | WEATHER", "", COL_CYAN);
+    drawTopbar(tft, "< HOME | WEATHER", "", g_themeColor);
     tft.setTextFont(FONT_SMALL);
-    tft.setTextColor(COL_CYAN, COL_BG);
+    tft.setTextColor(g_themeColor, COL_BG);
     tft.drawCentreString("Fetching weather data...", SCREEN_W / 2, SCREEN_H / 2, FONT_SMALL);
 
     // SD ops: check cache

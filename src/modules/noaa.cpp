@@ -214,9 +214,9 @@ static bool appendLogLine(const String &entry) {
 static void drawInput() {
     int y = SCREEN_H - 22;
     s_tft->fillRect(0, y, SCREEN_W, 22, COL_INPUT_BG);
-    s_tft->drawFastHLine(0, y - 1, SCREEN_W, COL_CYAN);
+    s_tft->drawFastHLine(0, y - 1, SCREEN_W, g_themeColor);
     s_tft->setTextFont(FONT_SMALL);
-    s_tft->setTextColor(COL_CYAN, COL_INPUT_BG);
+    s_tft->setTextColor(g_themeColor, COL_INPUT_BG);
     String display = s_editIndex >= 0 ? "E> " + s_input + "_" : "> " + s_input + "_";
     while (display.length() > 3 && s_tft->textWidth(display) > SCREEN_W - 4) display.remove(2, 1);
     s_tft->drawString(display, 2, y + 6);
@@ -225,15 +225,15 @@ static void drawInput() {
 static void drawLogScreen() {
     updateClockStr();
     s_tft->fillScreen(COL_BG);
-    drawTopbar(*s_tft, "< HOME | LOG", s_clockStr, COL_CYAN);
+    drawTopbar(*s_tft, "< HOME | LOG", s_clockStr, g_themeColor);
 
     s_tft->fillRect(0, TOPBAR_H, SCREEN_W, STATUSBAR_H, COL_BG);
     s_tft->setTextFont(FONT_SMALL);
-    s_tft->setTextColor(s_sdOk ? COL_CYAN : COL_AMBER, COL_BG);
+    s_tft->setTextColor(s_sdOk ? g_themeColor : COL_AMBER, COL_BG);
     s_tft->drawString(s_status, 4, TOPBAR_H + 3);
-    s_tft->setTextColor(COL_CYAN, COL_BG);
+    s_tft->setTextColor(g_themeColor, COL_BG);
     s_tft->drawString("Q=home", SCREEN_W - s_tft->textWidth("Q=home") - 4, TOPBAR_H + 3);
-    s_tft->drawFastHLine(0, TOPBAR_H + STATUSBAR_H - 1, SCREEN_W, COL_CYAN);
+    s_tft->drawFastHLine(0, TOPBAR_H + STATUSBAR_H - 1, SCREEN_W, g_themeColor);
 
     int y = CONTENT_Y + 2;
     int areaH = SCREEN_H - CONTENT_Y - 24;
@@ -244,14 +244,14 @@ static void drawLogScreen() {
         s_tft->setTextColor(COL_AMBER, COL_BG);
         s_tft->drawCentreString("SD REQUIRED", SCREEN_W / 2, y + 30, FONT_MED);
         s_tft->setTextFont(FONT_SMALL);
-        s_tft->setTextColor(COL_CYAN, COL_BG);
+        s_tft->setTextColor(g_themeColor, COL_BG);
         s_tft->drawCentreString("Q=home  Insert card for notes", SCREEN_W / 2, y + 54, FONT_SMALL);
     } else if (s_lineCount == 0) {
         s_tft->setTextFont(FONT_MED);
-        s_tft->setTextColor(COL_CYAN, COL_BG);
+        s_tft->setTextColor(g_themeColor, COL_BG);
         s_tft->drawCentreString("FIELD LOG", SCREEN_W / 2, y + 28, FONT_MED);
         s_tft->setTextFont(FONT_SMALL);
-        s_tft->setTextColor(COL_CYAN, COL_BG);
+        s_tft->setTextColor(g_themeColor, COL_BG);
         s_tft->drawCentreString("Type note, Enter saves, Q=home", SCREEN_W / 2, y + 52, FONT_SMALL);
     } else {
         s_tft->setTextFont(FONT_SMALL);
@@ -260,17 +260,17 @@ static void drawLogScreen() {
             bool selected = i == s_selected;
             if (selected) {
                 s_tft->fillRect(0, ly - 1, SCREEN_W, LOG_ROW_H, COL_INPUT_BG);
-                drawCornerBrackets(*s_tft, 1, ly - 1, SCREEN_W - 2, LOG_ROW_H, COL_CYAN, 5);
+                drawCornerBrackets(*s_tft, 1, ly - 1, SCREEN_W - 2, LOG_ROW_H, g_themeColor, 5);
             }
-            s_tft->setTextColor(COL_CYAN, selected ? COL_INPUT_BG : COL_BG);
+            s_tft->setTextColor(g_themeColor, selected ? COL_INPUT_BG : COL_BG);
             s_tft->drawString(fitText(s_lines[i].text, SCREEN_W - 12), 6, ly + 2);
-            if (i < s_lineCount - 1) s_tft->drawFastHLine(0, ly + LOG_ROW_H - 1, SCREEN_W, COL_CYAN);
+            if (i < s_lineCount - 1) s_tft->drawFastHLine(0, ly + LOG_ROW_H - 1, SCREEN_W, g_themeColor);
         }
     }
 
     if (s_savedOk) {
         s_tft->setTextFont(FONT_SMALL);
-        s_tft->setTextColor(COL_CYAN, COL_BG);
+        s_tft->setTextColor(g_themeColor, COL_BG);
         s_tft->drawString("saved", SCREEN_W - 42, 4);
     }
 

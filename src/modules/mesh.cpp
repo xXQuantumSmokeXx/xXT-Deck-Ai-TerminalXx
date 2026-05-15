@@ -251,7 +251,7 @@ static void drawMeshScreen() {
             // RSSI (colour-coded)
             char rssiBuf[8];
             snprintf(rssiBuf, sizeof(rssiBuf), "%d", (int)n.rssi);
-            uint16_t rssiCol = n.rssi >= -70 ? COL_CYAN
+            uint16_t rssiCol = n.rssi >= -70 ? g_themeColor
                              : n.rssi >= -85 ? COL_AMBER
                              : COL_RED;
             s_tft->setTextColor(rssiCol, COL_BG);

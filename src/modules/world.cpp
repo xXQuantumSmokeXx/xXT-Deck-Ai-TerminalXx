@@ -108,7 +108,7 @@ static uint16_t magColor(float mag) {
     if (mag >= 7.0f) return COL_RED;
     if (mag >= 6.0f) return COL_AMBER;
     if (mag >= 5.0f) return COL_GOLD;
-    return COL_CYAN;
+    return g_themeColor;
 }
 
 // ── Quake fetch — USGS FDSNWS query (12 most recent M3.5+) ───────────────────
@@ -222,11 +222,11 @@ static void drawWorldHeader(const char *title, const char *countLabel, int count
             snprintf(buf, sizeof(buf), "%s: %d", countLabel, count);
         }
         int w = s_tft->textWidth(buf);
-        s_tft->setTextColor(COL_CYAN, COL_BG);
+        s_tft->setTextColor(g_themeColor, COL_BG);
         s_tft->drawString(buf, SCREEN_W - w - 4, TOPBAR_H + 3);
     }
-    s_tft->drawFastHLine(0, TOPBAR_H + STATUSBAR_H - 1, SCREEN_W, COL_CYAN);
-    drawTopbar(*s_tft, title, s_syncStr, COL_CYAN);
+    s_tft->drawFastHLine(0, TOPBAR_H + STATUSBAR_H - 1, SCREEN_W, g_themeColor);
+    drawTopbar(*s_tft, title, s_syncStr, g_themeColor);
 }
 
 // ── Quakes screen ─────────────────────────────────────────────────────────────
@@ -238,10 +238,10 @@ static void drawQuakesScreen() {
 
     if (s_quakeCount == 0) {
         s_tft->setTextFont(FONT_MED);
-        s_tft->setTextColor(COL_CYAN, COL_BG);
+        s_tft->setTextColor(g_themeColor, COL_BG);
         s_tft->drawCentreString("NO DATA", SCREEN_W / 2, cy + 30, FONT_MED);
         s_tft->setTextFont(FONT_SMALL);
-        s_tft->setTextColor(COL_CYAN, COL_BG);
+        s_tft->setTextColor(g_themeColor, COL_BG);
         s_tft->drawCentreString(!WiFi.isConnected() ? "OFFLINE" : "No M3.5+ quakes this month",
                                 SCREEN_W / 2, cy + 52, FONT_SMALL);
         s_tft->drawCentreString("R=refresh  Q=home", SCREEN_W / 2, SCREEN_H - 12, FONT_SMALL);
@@ -266,10 +266,10 @@ static void drawQuakesScreen() {
         int dateX = SCREEN_W - dw - 2;
         int placeX = 2 + magW;
         String place = fitTextPx(q.place, dateX - placeX - 4);
-        s_tft->setTextColor(COL_WHITE, COL_BG);
+        s_tft->setTextColor(g_themeColor, COL_BG);
         s_tft->drawString(place, placeX, y + 2);
 
-        s_tft->setTextColor(COL_CYAN, COL_BG);
+        s_tft->setTextColor(g_themeColor, COL_BG);
         s_tft->drawString(q.when, dateX, y + 2);
 
         if (i < limit - 1)
@@ -278,10 +278,10 @@ static void drawQuakesScreen() {
 
     int by = SCREEN_H - BOTTOMBAR_H;
     s_tft->fillRect(0, by, SCREEN_W, BOTTOMBAR_H, COL_BG);
-    s_tft->drawFastHLine(0, by, SCREEN_W, COL_CYAN);
-    s_tft->drawFastHLine(0, SCREEN_H - 1, SCREEN_W, COL_CYAN);
+    s_tft->drawFastHLine(0, by, SCREEN_W, g_themeColor);
+    s_tft->drawFastHLine(0, SCREEN_H - 1, SCREEN_W, g_themeColor);
     s_tft->setTextFont(FONT_SMALL);
-    s_tft->setTextColor(COL_CYAN, COL_BG);
+    s_tft->setTextColor(g_themeColor, COL_BG);
     s_tft->drawCentreString("R=refresh  Q=home", SCREEN_W / 2, by + 3, FONT_SMALL);
 }
 
@@ -294,10 +294,10 @@ static void drawFiresScreen() {
 
     if (s_fireCount == 0) {
         s_tft->setTextFont(FONT_MED);
-        s_tft->setTextColor(COL_CYAN, COL_BG);
+        s_tft->setTextColor(g_themeColor, COL_BG);
         s_tft->drawCentreString("NO DATA", SCREEN_W / 2, cy + 30, FONT_MED);
         s_tft->setTextFont(FONT_SMALL);
-        s_tft->setTextColor(COL_CYAN, COL_BG);
+        s_tft->setTextColor(g_themeColor, COL_BG);
         s_tft->drawCentreString(!WiFi.isConnected() ? "OFFLINE" : "No wildfires tracked this year",
                                 SCREEN_W / 2, cy + 52, FONT_SMALL);
         s_tft->drawCentreString("R=refresh  Q=home", SCREEN_W / 2, SCREEN_H - 12, FONT_SMALL);
@@ -317,10 +317,10 @@ static void drawFiresScreen() {
         int dw = s_tft->textWidth(fi.when);
         int dateX = SCREEN_W - dw - 2;
         String title = fitTextPx(fi.title, dateX - 16);
-        s_tft->setTextColor(COL_WHITE, COL_BG);
+        s_tft->setTextColor(g_themeColor, COL_BG);
         s_tft->drawString(title, 12, y + 2);
 
-        s_tft->setTextColor(COL_CYAN, COL_BG);
+        s_tft->setTextColor(g_themeColor, COL_BG);
         s_tft->drawString(fi.when, dateX, y + 2);
 
         if (i < limit - 1)
@@ -329,10 +329,10 @@ static void drawFiresScreen() {
 
     int by = SCREEN_H - BOTTOMBAR_H;
     s_tft->fillRect(0, by, SCREEN_W, BOTTOMBAR_H, COL_BG);
-    s_tft->drawFastHLine(0, by, SCREEN_W, COL_CYAN);
-    s_tft->drawFastHLine(0, SCREEN_H - 1, SCREEN_W, COL_CYAN);
+    s_tft->drawFastHLine(0, by, SCREEN_W, g_themeColor);
+    s_tft->drawFastHLine(0, SCREEN_H - 1, SCREEN_W, g_themeColor);
     s_tft->setTextFont(FONT_SMALL);
-    s_tft->setTextColor(COL_CYAN, COL_BG);
+    s_tft->setTextColor(g_themeColor, COL_BG);
     s_tft->drawCentreString("R=refresh  Q=home", SCREEN_W / 2, by + 3, FONT_SMALL);
 }
 
@@ -344,9 +344,9 @@ void worldInit(TFT_eSPI &tft) {
     updateSyncStr();
     if (!cacheFresh(s_quakeFetchedAt, s_quakeCount)) {
         tft.fillScreen(COL_BG);
-        drawTopbar(tft, "< HOME | USGS", "", COL_CYAN);
+        drawTopbar(tft, "< HOME | USGS", "", g_themeColor);
         tft.setTextFont(FONT_SMALL);
-        tft.setTextColor(COL_CYAN, COL_BG);
+        tft.setTextColor(g_themeColor, COL_BG);
         tft.drawCentreString("Fetching USGS data...", SCREEN_W / 2, SCREEN_H / 2, FONT_SMALL);
         if (WiFi.isConnected()) fetchQuakes();
         updateSyncStr();
@@ -361,9 +361,9 @@ void worldInitFires(TFT_eSPI &tft) {
     updateSyncStr();
     if (!cacheFresh(s_fireFetchedAt, s_fireCount)) {
         tft.fillScreen(COL_BG);
-        drawTopbar(tft, "< HOME | FIRES", "", COL_CYAN);
+        drawTopbar(tft, "< HOME | FIRES", "", g_themeColor);
         tft.setTextFont(FONT_SMALL);
-        tft.setTextColor(COL_CYAN, COL_BG);
+        tft.setTextColor(g_themeColor, COL_BG);
         tft.drawCentreString("Fetching fire data...", SCREEN_W / 2, SCREEN_H / 2, FONT_SMALL);
         if (WiFi.isConnected()) fetchFires();
         updateSyncStr();

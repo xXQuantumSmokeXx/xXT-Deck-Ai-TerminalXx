@@ -103,7 +103,7 @@ static void redrawChatArea() {
         int barH   = max(4, (CHAT_INPUT_Y - top - 1) * CHAT_VISIBLE / s_histCount);
         int maxOff = s_histCount - CHAT_VISIBLE;
         int barY   = top + (CHAT_INPUT_Y - top - 1 - barH) * (maxOff - s_scrollOff) / maxOff;
-        s_tft->fillRect(SCREEN_W - 4, barY, 4, barH, COL_CYAN);
+        s_tft->fillRect(SCREEN_W - 4, barY, 4, barH, g_themeColor);
     }
 }
 
@@ -111,12 +111,12 @@ static void redrawInput() {
     PersonaDef *p = personaMgrGet();
     s_tft->fillRect(0, CHAT_INPUT_Y, SCREEN_W, SCREEN_H - CHAT_INPUT_Y, COL_INPUT_BG);
     s_tft->setTextFont(FONT_MED);
-    s_tft->setTextColor(COL_CYAN, COL_INPUT_BG);
+    s_tft->setTextColor(g_themeColor, COL_INPUT_BG);
     String display = "> " + s_inputBuf + "_";
     if (display.length() > 28) display = display.substring(display.length() - 28);
     s_tft->drawString(display, 2, CHAT_INPUT_Y + 4);
     // Accent line above input bar
-    s_tft->drawFastHLine(0, CHAT_INPUT_Y - 1, SCREEN_W, COL_CYAN);
+    s_tft->drawFastHLine(0, CHAT_INPUT_Y - 1, SCREEN_W, g_themeColor);
 }
 
 static void pushLine(const String &text, uint16_t color) {
@@ -182,7 +182,7 @@ static String readLine(const String &prompt, bool mask = false) {
     String buf = "";
     s_tft->fillScreen(COL_BG);
     s_tft->setTextFont(FONT_SMALL);
-    s_tft->setTextColor(COL_CYAN, COL_BG);
+    s_tft->setTextColor(g_themeColor, COL_BG);
     if ((int)prompt.length() > 52) {
         s_tft->drawString(prompt.substring(0, 52), 2, 10);
         s_tft->drawString(prompt.substring(52), 2, 26);
@@ -191,7 +191,7 @@ static String readLine(const String &prompt, bool mask = false) {
     }
     auto redrawRL = [&]() {
         s_tft->fillRect(0, 42, SCREEN_W, 20, COL_BG);
-        s_tft->setTextColor(COL_CYAN, COL_BG);
+        s_tft->setTextColor(g_themeColor, COL_BG);
         String m = mask ? String(buf.length(), '*') : buf;
         s_tft->drawString(m + "_", 2, 44);
     };
@@ -222,7 +222,7 @@ static void drawChatTopbar() {
     String tgt = s_aiTarget; tgt.toUpperCase();
     char rightLabel[16];
     snprintf(rightLabel, sizeof(rightLabel), "%s Q=home", tgt.c_str());
-    drawTopbar(*s_tft, title, rightLabel, COL_CYAN);
+    drawTopbar(*s_tft, title, rightLabel, g_themeColor);
     drawStatusBar(*s_tft, WiFi.isConnected(), false, p->title[0] ? p->title : p->name, 0);
 }
 
@@ -299,7 +299,7 @@ static void sendMessage(const String &msg) {
             ctxAdd(msg, reply);
             String label = s_aiTarget.isEmpty() ? String(p->name) : s_aiTarget;
             label.toUpperCase();
-            pushWrapped(label + ": ", reply, COL_CYAN);
+            pushWrapped(label + ": ", reply, g_themeColor);
         }
     } else {
         pushLine(code > 0 ? "ERR: HTTP " + String(code) : "ERR: connection failed", COL_SYS);
@@ -328,8 +328,8 @@ static void switchPersona() {
         s_tft->fillScreen(COL_BG);
         drawChatTopbar();
         PersonaDef *p = personaMgrGet();
-        pushLine(">> " + String(p->name), COL_CYAN);
-        if (p->title[0]) pushLine(p->title, COL_CYAN);
+        pushLine(">> " + String(p->name), g_themeColor);
+        if (p->title[0]) pushLine(p->title, g_themeColor);
         redrawChatArea();
         redrawInput();
     }
@@ -351,8 +351,8 @@ void chatInit(TFT_eSPI &tft) {
     redrawInput();
 
     PersonaDef *p = personaMgrGet();
-    pushLine(">> " + String(p->name) + (p->title[0] ? " - " + String(p->title) : ""), COL_CYAN);
-    pushWrapped("", "seturl setwifi setassist1 setassist2 persona clear", COL_CYAN);
+    pushLine(">> " + String(p->name) + (p->title[0] ? " - " + String(p->title) : ""), g_themeColor);
+    pushWrapped("", "seturl setwifi setassist1 setassist2 persona clear", g_themeColor);
     redrawChatArea();
     redrawInput();
 }
@@ -426,7 +426,7 @@ bool chatLoop(TFT_eSPI &tft) {
                         nvsPutString("ai_target", s_aiTarget);
                         ctxClear();
                         String disp = s_aiTarget; disp.toUpperCase();
-                        pushLine(">> " + disp, COL_CYAN);
+                        pushLine(">> " + disp, g_themeColor);
                         drawChatTopbar();
                     } else {
                         String disp = s_aiTarget; disp.toUpperCase();

@@ -43,7 +43,7 @@ static void updateClock() {
 
 // ── Vector tile icons ─────────────────────────────────────────────────────────
 static void drawTileIcon(TFT_eSPI &t, int idx, int cx, int cy) {
-    const uint16_t C = COL_CYAN;
+    const uint16_t C = g_themeColor;
     const uint16_t B = COL_BG;
 
     switch (idx) {
@@ -178,13 +178,13 @@ static void drawTile(TFT_eSPI &tft, int idx, bool selected) {
 
     // Label
     tft.setTextFont(FONT_SMALL);
-    tft.setTextColor(COL_CYAN, COL_BG);
+    tft.setTextColor(g_themeColor, COL_BG);
     int labelW = tft.textWidth(TILES[idx].label);
     tft.drawString(TILES[idx].label, x + (w - labelW) / 2, y + h - 18);
 
     // Selection indicator
     if (selected) {
-        drawCornerBrackets(tft, x + 1, y + 1, w - 2, h - 2, COL_CYAN, 8);
+        drawCornerBrackets(tft, x + 1, y + 1, w - 2, h - 2, g_themeColor, 8);
     }
 }
 
@@ -196,7 +196,7 @@ void homeInit(TFT_eSPI &tft) {
 }
 
 void homeDraw(TFT_eSPI &tft) {
-    drawTopbar(tft, ">> T-Deck-Ai-Terminal", s_clockStr, COL_CYAN);
+    drawTopbar(tft, ">> T-Deck-Ai-Terminal", s_clockStr, g_themeColor);
     drawStatusBar(tft, s_wifiOk, s_loraOk, "READY", s_kp);
     for (int i = 0; i < TILE_COUNT; i++) drawTile(tft, i, i == s_cursor);
     drawBottomBar(tft, "", false);
@@ -226,6 +226,6 @@ void homeTick(TFT_eSPI &tft) {
     if (getLocalTime(&ti, 0) && ti.tm_min != s_lastMin) {
         s_lastMin = ti.tm_min;
         updateClock();
-        drawTopbar(tft, ">> T-Deck-Ai-Terminal", s_clockStr, COL_CYAN);
+        drawTopbar(tft, ">> T-Deck-Ai-Terminal", s_clockStr, g_themeColor);
     }
 }

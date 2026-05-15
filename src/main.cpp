@@ -208,7 +208,7 @@ static void launchTile(TileID id) {
         default:
             s_screen = SCR_STUB;
             tft.fillScreen(COL_BG);
-            drawTopbar(tft, ">> AI TERMINAL", "", COL_CYAN);
+            drawTopbar(tft, ">> AI TERMINAL", "", g_themeColor);
             tft.setTextFont(FONT_MED);
             tft.setTextColor(COL_GREY_MID, COL_BG);
             tft.drawCentreString("COMING SOON", SCREEN_W / 2, SCREEN_H / 2 - 10, FONT_MED);
@@ -260,15 +260,15 @@ static void loadDonkiKeyFromSD() {
 static void showSplash() {
     tft.fillScreen(COL_BG);
     tft.setTextFont(FONT_LARGE);
-    tft.setTextColor(COL_CYAN, COL_BG);
+    tft.setTextColor(g_themeColor, COL_BG);
     tft.drawCentreString("T-Deck-Ai-Terminal", SCREEN_W / 2, 72, FONT_LARGE);
     tft.setTextFont(FONT_MED);
-    tft.setTextColor(COL_CYAN, COL_BG);
+    tft.setTextColor(g_themeColor, COL_BG);
     tft.drawCentreString("xXMayDayXx", SCREEN_W / 2, 110, FONT_MED);
     tft.setTextFont(FONT_SMALL);
-    tft.setTextColor(COL_CYAN, COL_BG);
+    tft.setTextColor(g_themeColor, COL_BG);
     tft.drawCentreString("xXQuantum-SmokeXx", SCREEN_W / 2, 134, FONT_SMALL);
-    drawCornerBrackets(tft, 2, 2, SCREEN_W - 4, SCREEN_H - 4, COL_CYAN, 12);
+    drawCornerBrackets(tft, 2, 2, SCREEN_W - 4, SCREEN_H - 4, g_themeColor, 12);
     delay(1800);
     tft.fillScreen(COL_BG);
 }
@@ -285,7 +285,7 @@ static void bootWifi() {
 
     if (wifiConnect()) {
         homeSetWifiStatus(true);
-        tft.setTextColor(COL_CYAN, COL_BG);
+        tft.setTextColor(g_themeColor, COL_BG);
         tft.drawString("Connected: " + wifiIP(), 4, 26);
         // NTP sync — Eastern time with auto DST
         configTime(0, 0, "pool.ntp.org", "time.nist.gov");
@@ -299,7 +299,7 @@ static void bootWifi() {
         if (getLocalTime(&ti, 0)) {
             char tbuf[24];
             snprintf(tbuf, sizeof(tbuf), "Time: %02d:%02d ET", ti.tm_hour, ti.tm_min);
-            tft.setTextColor(COL_CYAN, COL_BG);
+            tft.setTextColor(g_themeColor, COL_BG);
             tft.drawString(tbuf, 4, 56);
         }
         s_webServer.on("/ss", HTTP_GET, handleScreenshot);
@@ -333,6 +333,7 @@ void setup() {
     tft.begin();
     tft.setRotation(1);
     tft.fillScreen(COL_BG);
+    themeColorInit();
     initBrightness();
 
     attachInterrupt(digitalPinToInterrupt(BOARD_TBOX_UP),    isrTbUp,    FALLING);

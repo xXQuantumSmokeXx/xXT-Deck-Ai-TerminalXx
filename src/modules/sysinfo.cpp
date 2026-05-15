@@ -62,9 +62,9 @@ static char readKeyboard() {
 static String sysReadLine(const String &prompt, const String &initial = "") {
     String buf = initial;
     s_tft->fillScreen(COL_BG);
-    drawTopbar(*s_tft, "< SYSTEM | EDIT", "", COL_CYAN);
+    drawTopbar(*s_tft, "< SYSTEM | EDIT", "", g_themeColor);
     s_tft->setTextFont(FONT_SMALL);
-    s_tft->setTextColor(COL_CYAN, COL_BG);
+    s_tft->setTextColor(g_themeColor, COL_BG);
     s_tft->drawString(prompt, 4, TOPBAR_H + 12);
     auto redraw = [&]() {
         s_tft->fillRect(4, TOPBAR_H + 32, SCREEN_W - 8, 18, COL_BG);
@@ -89,6 +89,61 @@ static void editDisplayName() {
     String name = sysReadLine("Display name:", s_info.displayName);
     if (name.isEmpty()) name = "Commander Smoke";
     nvsPutString("display_name", name);
+    gatherData();
+    drawSysinfoScreen();
+}
+
+static void pickTheme() {
+    int cur = themeColorIndex();
+    int sel = cur;
+
+    // Draw a single row — no fillScreen, only the row's pixels
+    auto drawRow = [&](int i) {
+        int y = CONTENT_Y + 8 + i * 22;
+        bool isSel    = (i == sel);
+        bool isActive = (i == cur);
+        uint16_t rowBg = isSel ? COL_INPUT_BG : COL_BG;
+        s_tft->fillRect(0, y - 3, SCREEN_W, 17, rowBg);
+        s_tft->fillRect(8, y, 26, 11, THEME_COLORS[i].color);
+        s_tft->drawRect(8, y, 26, 11, isSel ? COL_WHITE : COL_GREY_DIM);
+        s_tft->setTextColor(isSel ? COL_WHITE : COL_GREY_MID, rowBg);
+        s_tft->drawString(THEME_COLORS[i].name, 42, y + 2);
+        if (isActive) {
+            s_tft->setTextColor(THEME_COLORS[i].color, rowBg);
+            s_tft->drawString("<<", SCREEN_W - 20, y + 2);
+        }
+    };
+
+    // Full draw once on open
+    s_tft->fillScreen(COL_BG);
+    drawTopbar(*s_tft, "< SYSTEM | THEME", "", g_themeColor);
+    for (int i = 0; i < THEME_COLOR_COUNT; i++) drawRow(i);
+    s_tft->setTextFont(FONT_SMALL);
+    {
+        int by = SCREEN_H - BOTTOMBAR_H;
+        s_tft->drawFastHLine(0, by, SCREEN_W, g_themeColor);
+        s_tft->drawFastHLine(0, SCREEN_H - 1, SCREEN_W, g_themeColor);
+        s_tft->setTextColor(COL_GREY_MID, COL_BG);
+        s_tft->drawCentreString("W/S=nav  Enter=apply  Q=cancel", SCREEN_W / 2, by + 3, FONT_SMALL);
+    }
+
+    while (true) {
+        char k = readKeyboard();
+        if (k == 0) { delay(20); continue; }
+        if (k == 'q' || k == 'Q' || k == 27) break;
+        if (k == '\r' || k == '\n') {
+            themeColorSet(sel);
+            break;  // exit immediately — no more drawing inside the picker
+        }
+        if ((k == 'w' || k == 'i') && sel > 0) {
+            int prev = sel--; drawRow(prev); drawRow(sel);
+        }
+        if ((k == 's' || k == 'k') && sel < THEME_COLOR_COUNT - 1) {
+            int prev = sel++; drawRow(prev); drawRow(sel);
+        }
+        delay(20);
+    }
+    s_tft->fillScreen(COL_BG);  // wipe picker before SD/SPI in gatherData
     gatherData();
     drawSysinfoScreen();
 }
@@ -158,7 +213,7 @@ static const char *rssiLabel(int rssi) {
 }
 
 static uint16_t rssiColor(int rssi) {
-    if (rssi >= -60) return COL_CYAN;
+    if (rssi >= -60) return g_themeColor;
     if (rssi >= -75) return COL_AMBER;
     return COL_RED;
 }
@@ -167,7 +222,7 @@ static uint16_t rssiColor(int rssi) {
 static void drawBar(int x, int y, int w, int h, float pct, uint16_t col) {
     if (pct < 0.0f) pct = 0.0f;
     if (pct > 1.0f) pct = 1.0f;
-    s_tft->drawRect(x, y, w, h, COL_CYAN);
+    s_tft->drawRect(x, y, w, h, g_themeColor);
     int filled = (int)(pct * (w - 2));
     if (filled > 0) s_tft->fillRect(x + 1, y + 1, filled, h - 2, col);
 }
@@ -175,7 +230,7 @@ static void drawBar(int x, int y, int w, int h, float pct, uint16_t col) {
 // ── Two-column stat row helpers ───────────────────────────────────────────────
 static void drawLabel(int x, int y, const char *label) {
     s_tft->setTextFont(FONT_SMALL);
-    s_tft->setTextColor(COL_CYAN, COL_BG);
+    s_tft->setTextColor(g_themeColor, COL_BG);
     s_tft->drawString(label, x, y);
 }
 
@@ -187,7 +242,7 @@ static void drawValue(int x, int y, const char *val, uint16_t col = COL_WHITE) {
 
 static void divider(int &y) {
     y += 12;
-    s_tft->drawFastHLine(0, y, SCREEN_W, COL_CYAN);
+    s_tft->drawFastHLine(0, y, SCREEN_W, g_themeColor);
     y += 4;
 }
 
@@ -196,17 +251,17 @@ static void drawSysinfoScreen() {
     s_tft->fillScreen(COL_BG);
 
     // Topbar
-    drawTopbar(*s_tft, "< HOME | SYSTEM", FW_VERSION, COL_CYAN);
+    drawTopbar(*s_tft, "< HOME | SYSTEM", FW_VERSION, g_themeColor);
 
     // Status bar
     s_tft->fillRect(0, TOPBAR_H, SCREEN_W, STATUSBAR_H, COL_BG);
     s_tft->setTextFont(FONT_SMALL);
-    s_tft->setTextColor(COL_CYAN, COL_BG);
+    s_tft->setTextColor(g_themeColor, COL_BG);
     s_tft->drawString("AI TERMINAL", 4, TOPBAR_H + 3);
     const char *bdate = __DATE__;
     int bdw = s_tft->textWidth(bdate);
     s_tft->drawString(bdate, SCREEN_W - bdw - 4, TOPBAR_H + 3);
-    s_tft->drawFastHLine(0, TOPBAR_H + STATUSBAR_H - 1, SCREEN_W, COL_CYAN);
+    s_tft->drawFastHLine(0, TOPBAR_H + STATUSBAR_H - 1, SCREEN_W, g_themeColor);
 
     int y = TOPBAR_H + STATUSBAR_H + 4;
 
@@ -246,7 +301,7 @@ static void drawSysinfoScreen() {
         float usedPct = s_info.totalHeap > 0
             ? 1.0f - (float)s_info.freeHeap / s_info.totalHeap : 0;
         drawLabel(4, y, "HEAP");
-        drawBar(bx, y, bw, 8, usedPct, usedPct < 0.8f ? COL_CYAN : COL_AMBER);
+        drawBar(bx, y, bw, 8, usedPct, usedPct < 0.8f ? g_themeColor : COL_AMBER);
         drawValue(SCREEN_W - valW - 4, y, memBuf);
     }
 
@@ -261,7 +316,7 @@ static void drawSysinfoScreen() {
         int valW = s_tft->textWidth(psBuf);
         int bx   = 46, bw = SCREEN_W - bx - valW - 8;
         float usedPct = 1.0f - (float)s_info.freePsram / s_info.totalPsram;
-        drawBar(bx, y, bw, 8, usedPct, COL_CYAN);
+        drawBar(bx, y, bw, 8, usedPct, g_themeColor);
         drawValue(SCREEN_W - valW - 4, y, psBuf);
     } else {
         drawValue(46, y, "NOT DETECTED", COL_GREY_DIM);
@@ -272,7 +327,7 @@ static void drawSysinfoScreen() {
     // ── Section 3: WiFi ───────────────────────────────────────────────────────
     drawLabel(4, y, "WIFI");
     if (s_info.wifiOk) {
-        drawValue(46, y, "CONNECTED", COL_CYAN);
+        drawValue(46, y, "CONNECTED", g_themeColor);
         char rssiBuf[24];
         snprintf(rssiBuf, sizeof(rssiBuf), "%d dBm  %s",
                  s_info.wifiRssi, rssiLabel(s_info.wifiRssi));
@@ -305,7 +360,7 @@ static void drawSysinfoScreen() {
         int valW = s_tft->textWidth(sdBuf);
         int bx   = 22, bw = SCREEN_W - bx - valW - 8;
         float usedPct = (float)(s_info.sdUsed) / s_info.sdTotal;
-        drawBar(bx, y, bw, 8, usedPct, usedPct < 0.85f ? COL_CYAN : COL_AMBER);
+        drawBar(bx, y, bw, 8, usedPct, usedPct < 0.85f ? g_themeColor : COL_AMBER);
         drawValue(SCREEN_W - valW - 4, y, sdBuf);
     } else {
         drawValue(22, y, "NOT MOUNTED", COL_GREY_DIM);
@@ -329,13 +384,17 @@ static void drawSysinfoScreen() {
 
     y += 11;
     drawLabel(4, y, "NAME");
-    drawValue(42, y, s_info.displayName, COL_CYAN);
+    drawValue(42, y, s_info.displayName, g_themeColor);
 
     y += 11;
     drawLabel(4, y, "BRIGHT");
     char brightBuf[10];
     snprintf(brightBuf, sizeof(brightBuf), "%d/16", s_info.brightness);
-    drawValue(58, y, brightBuf, COL_CYAN);
+    drawValue(58, y, brightBuf, g_themeColor);
+
+    y += 11;
+    drawLabel(4, y, "THEME");
+    drawValue(50, y, themeColorName(), g_themeColor);
 
     y += 11;
     // Current UTC time (read from NTP)
@@ -345,13 +404,19 @@ static void drawSysinfoScreen() {
         char timeBuf[12];
         snprintf(timeBuf, sizeof(timeBuf), "%02d:%02d:%02d",
                  ti.tm_hour, ti.tm_min, ti.tm_sec);
-        drawValue(30, y, timeBuf, COL_CYAN);
+        drawValue(30, y, timeBuf, g_themeColor);
     }
 
-    // Hint bar ─────────────────────────────────────────────────────────────
-    s_tft->setTextFont(FONT_SMALL);
-    s_tft->setTextColor(COL_CYAN, COL_BG);
-    s_tft->drawCentreString("Q=home  R=refresh  D=name  +/- bright", SCREEN_W / 2, SCREEN_H - 12, FONT_SMALL);
+    // Bottom bar
+    {
+        int by = SCREEN_H - BOTTOMBAR_H;
+        s_tft->fillRect(0, by, SCREEN_W, BOTTOMBAR_H, COL_BG);
+        s_tft->drawFastHLine(0, by, SCREEN_W, g_themeColor);
+        s_tft->drawFastHLine(0, SCREEN_H - 1, SCREEN_W, g_themeColor);
+        s_tft->setTextFont(FONT_SMALL);
+        s_tft->setTextColor(g_themeColor, COL_BG);
+        s_tft->drawCentreString("Q=home  R=refresh  D=name  T=theme  +/-", SCREEN_W / 2, by + 3, FONT_SMALL);
+    }
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -373,6 +438,9 @@ bool sysinfoLoop(TFT_eSPI &tft) {
     }
     if (key == 'd' || key == 'D') {
         editDisplayName();
+    }
+    if (key == 't' || key == 'T') {
+        pickTheme();
     }
     if (key == '+' || key == '=') {
         applyBrightness(s_info.brightness + 1);
