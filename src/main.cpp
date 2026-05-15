@@ -138,10 +138,11 @@ static void drainTrackball(int &up, int &down, int &left, int &right) {
 static void handleHomeTrackball() {
     int up, down, left, right;
     drainTrackball(up, down, left, right);
-    for (int i = 0; i < up;    i++) homeNavUp(tft);
-    for (int i = 0; i < down;  i++) homeNavDown(tft);
-    for (int i = 0; i < left;  i++) homeNavRight(tft);
-    for (int i = 0; i < right; i++) homeNavLeft(tft);
+    // Cap at 1 per tick — prevents burst redraws when trackball generates multiple pulses
+    if (up)    homeNavUp(tft);
+    if (down)  homeNavDown(tft);
+    if (left)  homeNavRight(tft);
+    if (right) homeNavLeft(tft);
 }
 
 static bool handleScreenTrackball() {
@@ -197,14 +198,20 @@ static void launchTile(TileID id) {
             s_screen = SCR_ALERTS;
             noaaInit(tft);
             break;
-        case TILE_WORLD:
+        case TILE_WORLD: {
             s_screen = SCR_WORLD;
             worldInit(tft);
+            int _u, _d, _l, _r;
+            drainTrackball(_u, _d, _l, _r);  // discard pulses stacked during fetch
             break;
-        case TILE_FIRE:
+        }
+        case TILE_FIRE: {
             s_screen = SCR_WORLD;
             worldInitFires(tft);
+            int _u, _d, _l, _r;
+            drainTrackball(_u, _d, _l, _r);  // discard pulses stacked during fetch
             break;
+        }
         default:
             s_screen = SCR_STUB;
             tft.fillScreen(COL_BG);

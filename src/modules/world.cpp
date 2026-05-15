@@ -271,9 +271,6 @@ static void drawQuakesScreen() {
 
         s_tft->setTextColor(g_themeColor, COL_BG);
         s_tft->drawString(q.when, dateX, y + 2);
-
-        if (i < limit - 1)
-            s_tft->drawFastHLine(0, y + ROW_H - 1, SCREEN_W, COL_GREY_DIM);
     }
 
     int by = SCREEN_H - BOTTOMBAR_H;
@@ -322,9 +319,6 @@ static void drawFiresScreen() {
 
         s_tft->setTextColor(g_themeColor, COL_BG);
         s_tft->drawString(fi.when, dateX, y + 2);
-
-        if (i < limit - 1)
-            s_tft->drawFastHLine(0, y + ROW_H - 1, SCREEN_W, COL_GREY_DIM);
     }
 
     int by = SCREEN_H - BOTTOMBAR_H;
