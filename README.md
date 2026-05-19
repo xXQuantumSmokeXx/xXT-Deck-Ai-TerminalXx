@@ -37,9 +37,6 @@ Built by Commander Smoke, with development assistance from Codex.
 - **NEWS** — Live RSS headlines from CDC, WHO, ABC News, and BBC World. NVS-cached, 30-minute TTL.
 - **SYSTEM** — Device, WiFi, SD, heap, uptime, backend, persona status, and brightness control
 - All data screens NVS-cache their last successful fetch for instant load and offline resilience
-- Consistent themed bottom bar across all screens — two border lines, all-caps shortcuts, no dividers
-- Date display (day of week, month, day, year) in the home status bar when NTP is synced
-- Custom Quantum Smoke splash logo on boot
 
 ## Hardware Required
 
