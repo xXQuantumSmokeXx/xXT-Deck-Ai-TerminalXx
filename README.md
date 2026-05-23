@@ -48,7 +48,7 @@ Built by xXQuantum-SmokeXx, with development assistance from Codex and Claude Co
 
 **Option 1 — M5Launcher (SD card, no USB required):**
 
-1. Grab `Ai-Field-Terminal.bin` from the [latest release](https://github.com/xXQuantumSmokeXx/T-Deck-Ai-Terminal/releases/latest) and copy it to your SD card root.
+1. Grab `Ai-Field-Terminal.bin` from the [latest release](https://github.com/xXQuantumSmokeXx/xXT-Deck-Ai-TerminalXx/releases/latest) and copy it to your SD card root.
 2. Boot into M5Launcher on the T-Deck.
 3. Select `Ai-Field-Terminal.bin` and flash.
 
