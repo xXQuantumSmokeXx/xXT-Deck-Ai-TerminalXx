@@ -1,12 +1,12 @@
 # xXT-Deck-Ai-TerminalXx
 
-A field-ready firmware build for the LILYGO T-Deck ESP32-S3. Started as an AI chat terminal and evolved into a full suite covering AI persona chat, weather, solar conditions, crypto, field logging, scripture and reference reading, wildfire and USGS earthquake feeds, SHTF situational awareness, traffic and hazard monitoring, tarot divination, live news feeds, and system diagnostics.
+A tactical multi-function terminal for the LILYGO T-Deck ESP32-S3, consolidating AI chat, weather, space weather, cryptocurrency tracking, wildfire and earthquake monitoring, SHTF situational awareness, traffic and hazard alerts, offline tarot divination, field logging, scripture and reference reading, live news feeds, and system diagnostics into a single portable device.
 
 Built by xXQuantum-SmokeXx, with development assistance from Codex and Claude Code.
 
 [![Support on Patreon](https://img.shields.io/badge/Support-Patreon-orange)](https://www.patreon.com/c/xXQuantumSmokeXx)
 
-![MayDay T-Deck AI Terminal launcher](images/MainUi.png)
+![xXT-Deck-Ai-TerminalXx launcher](images/MainUi.png)
 
 ## Display Gallery
 
