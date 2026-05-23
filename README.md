@@ -2,8 +2,6 @@
 
 A tactical multi-function terminal for the LILYGO T-Deck ESP32-S3, consolidating AI chat, weather, space weather, cryptocurrency tracking, wildfire and earthquake monitoring, SHTF situational awareness, traffic and hazard alerts, offline tarot divination, field logging, scripture and reference reading, live news feeds, and system diagnostics into a single portable device.
 
-Built by xXQuantum-SmokeXx, with development assistance from Codex and Claude Code.
-
 [![Support on Patreon](https://img.shields.io/badge/Support-Patreon-orange)](https://www.patreon.com/c/xXQuantumSmokeXx)
 
 ![xXT-Deck-Ai-TerminalXx launcher](images/MainUi.png)
@@ -314,3 +312,5 @@ All SD setup files persist until you delete them. Remove them manually after con
 - **Persona files** — may contain private system prompts
 
 Treat the SD card as sensitive. If it is lost or accessed, any remaining setup files are readable in plain text.
+
+Built by xXQuantum-SmokeXx, with development assistance from Codex and Claude Code.
