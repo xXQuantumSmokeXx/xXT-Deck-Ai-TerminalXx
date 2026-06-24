@@ -20,9 +20,9 @@ A tactical multi-function terminal for the LILYGO T-Deck ESP32-S3, consolidating
 | --- | --- | --- |
 | ![CODEX screen](images/T-Deck-Display/Codex.png) | ![Crypto screen](images/T-Deck-Display/Crypto.png) | ![Fires screen](images/T-Deck-Display/Fires.png) |
 
-| USGS | System | Home (Theme) |
+| USGS | System | Oracle |
 | --- | --- | --- |
-| ![USGS screen](images/T-Deck-Display/USGS.png) | ![System screen](images/T-Deck-Display/System.png) | ![Home themed](images/T-Deck-Display/Home-Theme.png) |
+| ![USGS screen](images/T-Deck-Display/USGS.png) | ![System screen](images/T-Deck-Display/System.png) | ![Oracle screen](Oracle.png) |
 
 ## Features
 
