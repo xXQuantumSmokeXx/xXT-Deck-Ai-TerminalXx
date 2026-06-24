@@ -5,8 +5,9 @@ A tactical multi-function terminal for the LILYGO T-Deck ESP32-S3, consolidating
 [![Support on Patreon](https://img.shields.io/badge/Support-Patreon-orange)](https://www.patreon.com/c/xXQuantumSmokeXx)
 
 <table><tr>
-<td><img src="images/MainUi.png" alt="Main launcher" width="320"></td>
-<td><img src="OrangeTheme.png" alt="Orange theme" width="320"></td>
+<td><img src="images/MainUi.png" alt="Main launcher" width="280"></td>
+<td><img src="OrangeTheme.png" alt="Orange theme" width="280"></td>
+<td><img src="PurpleTheme.png" alt="Purple theme" width="280"></td>
 </tr></table>
 
 ## Display Gallery
