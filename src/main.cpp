@@ -774,9 +774,41 @@ void setup() {
     touchDrain();
 }
 
+// ── Serial screenshot capture ─────────────────────────────────────────────────
+// USB-CDC serial protocol (no WiFi needed):
+//   Python sends 'R' → device replies "READY"
+//   Python sends 'S' → device replies "RGB332:" + 320×240 raw pixels
+static void handleSerialScreenshot() {
+    uint16_t lineBuf[SCREEN_W];
+    Serial.print("RGB332:");
+    for (int y = 0; y < SCREEN_H; y++) {
+        tft.readRect(0, y, SCREEN_W, 1, lineBuf);
+        for (int x = 0; x < SCREEN_W; x++) {
+            uint16_t c = lineBuf[x];
+            // T-Deck panel returns byte-swapped RGB565
+            c = (c << 8) | (c >> 8);
+            uint8_t r3 = (c >> 13) & 0x07;
+            uint8_t g3 = (c >> 8)  & 0x07;
+            uint8_t b2 = (c >> 3)  & 0x03;
+            Serial.write((r3 << 5) | (g3 << 2) | b2);
+        }
+    }
+    Serial.flush();
+}
+
 // ── loop ──────────────────────────────────────────────────────────────────────
 void loop() {
     s_webServer.handleClient();  // non-blocking; serves /ss screenshot on demand
+
+    // Serial screenshot protocol (USB-CDC, no WiFi needed)
+    if (Serial.available()) {
+        int cmd = Serial.read();
+        if (cmd == 'R' || cmd == 'r') {
+            Serial.println("READY");
+        } else if (cmd == 'S' || cmd == 's') {
+            handleSerialScreenshot();
+        }
+    }
 
     if (s_screen == SCR_HOME) {
         handleHomeTrackball();
