@@ -14,7 +14,7 @@
 
 #define BOARD_SDCARD_CS  39
 #define KB_ADDR        0x55
-#define CACHE_TTL_SEC  1800   // 30 minutes
+#define CACHE_TTL_SEC  3600   // 1 hour
 #define DEFAULT_LAT    39.9526f
 #define DEFAULT_LON   -75.1652f
 #define DEFAULT_CITY   "PHILADELPHIA, PA"
@@ -499,6 +499,16 @@ static void doSetLocation() {
     nvsPutString("wx_lon", lonStr);
     nvsPutInt("wx_cached_at", 0);  // invalidate cache
     buildLocationName();
+}
+
+// ── Boot-time cache warming ──────────────────────────────────────────────────
+// Called once at startup before the user navigates to any screen.
+// Populates SD cache so weatherInit() always finds data ready.
+void weatherWarmCache() {
+    if (!WiFi.isConnected()) return;
+    buildLocationName();     // reads lat/lon from NVS
+    fetchWeather();          // fetches from Open-Meteo, saves to SD
+    spiReinitForTFT();       // restore SPI after SD ops
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────

@@ -11,7 +11,7 @@
 #include <time.h>
 
 #define KB_ADDR        0x55
-#define CACHE_TTL_SEC   900   // 15 minutes
+#define CACHE_TTL_SEC   3600  // 1 hour
 #define DONKI_API_KEY_DEFAULT  "DEMO_KEY"
 
 // ── Data model ────────────────────────────────────────────────────────────────
@@ -688,6 +688,14 @@ static void drawSolarScreen() {
     } else {
         drawMenuBar(*s_tft, "Q=HOME  R=REFRESH");
     }
+}
+
+// ── Boot-time cache warming ──────────────────────────────────────────────────
+// Called once at startup before the user navigates to any screen.
+// Populates NVS cache so solarInit() always finds data ready.
+void solarWarmCache() {
+    if (!WiFi.isConnected()) return;
+    fetchAllData();          // fetches from NOAA/SWPC, saves to NVS
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────

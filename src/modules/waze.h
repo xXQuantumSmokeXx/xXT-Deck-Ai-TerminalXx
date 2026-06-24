@@ -14,3 +14,4 @@ bool wazeRoadLoop(TFT_eSPI &tft);
 
 void wazeTrackballUp();
 void wazeTrackballDown();
+void wazeWarmCache();           // pre-fetch TomTom hazards + Waze alerts at boot

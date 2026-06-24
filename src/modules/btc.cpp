@@ -14,7 +14,7 @@
 
 #define BOARD_SDCARD_CS  39
 #define KB_ADDR          0x55
-#define CACHE_TTL_SEC    300    // 5 minutes
+#define CACHE_TTL_SEC    3600   // 1 hour
 #define COIN_MAX         6
 #define SPARK_POINTS     168    // 7 days × 24h hourly prices
 
@@ -356,6 +356,18 @@ static void spiReinitForTFT() {
     SPI.endTransaction();
 }
 
+// ── Boot-time cache warming ──────────────────────────────────────────────────
+// Called once at startup before the user navigates to any screen.
+// Populates SD cache so btcInit() always finds data ready.
+void btcWarmCache() {
+    if (!WiFi.isConnected()) return;
+    loadCoinIds();           // reads coin IDs from SD or NVS
+    if (fetchCoins()) {      // fetches from CoinGecko, saves to SD
+        fetchFearGreed();    // fetches Fear & Greed index
+    }
+    spiReinitForTFT();       // restore SPI after SD ops
+}
+
 static void drawBtcScreen() {
     s_tft->fillScreen(COL_BG);
 
@@ -605,11 +617,6 @@ void btcInit(TFT_eSPI &tft) {
 
     if (cacheHit) {
         drawBtcScreen();
-        if (WiFi.isConnected()) {
-            if (fetchCoins()) fetchFearGreed();  // fetchCoins → saveCacheToSD → SD ops
-            spiReinitForTFT();
-            drawBtcScreen();
-        }
         return;
     }
 

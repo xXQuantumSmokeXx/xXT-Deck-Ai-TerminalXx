@@ -11,7 +11,7 @@
 #define KB_ADDR    0x55
 #define MAX_ITEMS  20
 #define ROW_H      16
-#define WORLD_CACHE_TTL_SEC 900
+#define WORLD_CACHE_TTL_SEC 3600
 
 // ── Data models ───────────────────────────────────────────────────────────────
 struct QuakeItem {
@@ -312,6 +312,15 @@ static void drawFiresScreen() {
     }
 
     drawMenuBar(*s_tft, "R=REFRESH  Q=HOME");
+}
+
+// ── Boot-time cache warming ──────────────────────────────────────────────────
+// Called once at startup before the user navigates to any screen.
+// Populates in-memory cache so worldInit() / worldInitFires() always find data ready.
+void worldWarmCache() {
+    if (!WiFi.isConnected()) return;
+    fetchQuakes();           // fetches from USGS, sets s_quakeFetchedAt
+    fetchFires();            // fetches from NASA FIRMS, sets s_fireFetchedAt
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────

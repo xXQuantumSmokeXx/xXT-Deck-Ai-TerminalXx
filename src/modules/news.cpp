@@ -13,7 +13,7 @@
 #define NEWS_MAX_ITEMS  20      // 5 items × 4 feeds
 #define NEWS_VISIBLE    4
 #define NEWS_ROW_H      44
-#define NEWS_CACHE_TTL  1800    // 30 minutes
+#define NEWS_CACHE_TTL  3600    // 1 hour
 
 // ── Feed definitions ──────────────────────────────────────────────────────────
 struct FeedDef {
@@ -333,6 +333,15 @@ static void fetchAllFeeds() {
 
     if (s_itemCount == 0)
         strlcpy(s_errMsg, "No stories fetched - check WiFi", sizeof(s_errMsg));
+}
+
+// ── Boot-time cache warming ──────────────────────────────────────────────────
+// Called once at startup before the user navigates to any screen.
+// Populates NVS cache so newsInit() always finds data ready.
+void newsWarmCache() {
+    if (!WiFi.isConnected()) return;
+    fetchAllFeeds();         // fetches RSS feeds
+    if (s_itemCount > 0) saveCache();  // saves to NVS
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────

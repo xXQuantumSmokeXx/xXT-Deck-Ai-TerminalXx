@@ -6,3 +6,4 @@ void worldInitFires(TFT_eSPI &tft);
 bool worldLoop(TFT_eSPI &tft);  // returns false when user requests home
 void worldTrackballUp();
 void worldTrackballDown();
+void worldWarmCache();           // pre-fetch quakes + fires at boot

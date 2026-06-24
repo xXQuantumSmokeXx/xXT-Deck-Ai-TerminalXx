@@ -23,7 +23,7 @@
 #define DISASTER_DISPLAY  4    // rows shown (NWS-first, then FEMA)
 #define BIO_MAX           9
 #define BIO_VISIBLE       7
-#define SHTF_CACHE_TTL    1800  // 30 minutes
+#define SHTF_CACHE_TTL    3600  // 1 hour
 
 // ── State ──────────────────────────────────────────────────────────────────────
 struct DisasterItem {
@@ -754,6 +754,23 @@ static bool loadFromCache() {
 
     s_fromCache = true;
     return true;
+}
+
+// ── Boot-time cache warming ──────────────────────────────────────────────────
+// Called once at startup before the user navigates to any screen.
+// Populates NVS cache so shtfInit() always finds data ready.
+void shtfWarmCache() {
+    if (!WiFi.isConnected()) return;
+    loadCachedGPS();         // reads GPS coords from NVS
+    if (!s_gpsValid) return; // need GPS for SHTF data
+    // Restore location from NVS (same as shtfInit does)
+    String cf = nvsGetString("shtf_fips");
+    String cc = nvsGetString("shtf_county");
+    String cs = nvsGetString("shtf_state");
+    if (cf.length() == 5) strlcpy(s_fips,      cf.c_str(), sizeof(s_fips));
+    if (cc.length() > 0)  strlcpy(s_countyName, cc.c_str(), sizeof(s_countyName));
+    if (cs.length() > 0)  strlcpy(s_stateAbbr,  cs.c_str(), sizeof(s_stateAbbr));
+    fetchAll();              // fetches from NWS/FEMA/HealthMap, saves to NVS
 }
 
 // ── Public API ─────────────────────────────────────────────────────────────────

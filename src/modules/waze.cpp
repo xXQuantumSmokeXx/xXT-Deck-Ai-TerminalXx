@@ -22,7 +22,7 @@
 #define WAZE_MAX_ITEMS  25
 #define WAZE_VISIBLE    10          // rows visible at once  (CONTENT_H/WAZE_ROW_H)
 #define WAZE_ROW_H      18
-#define WAZE_CACHE_TTL      900     // 15 minutes
+#define WAZE_CACHE_TTL      3600    // 1 hour
 #define WAZE_RATELIMIT_TTL  3600    // 1 hour backoff after 429
 
 // ── Mode ──────────────────────────────────────────────────────────────────────
@@ -769,6 +769,27 @@ static bool loadWazeCache() {
 
     s_dataCached = true;
     return true;
+}
+
+// ── Boot-time cache warming ──────────────────────────────────────────────────
+// Called once at startup before the user navigates to any screen.
+// Populates NVS cache for all Waze modes so wazeInitCommon() always finds data ready.
+void wazeWarmCache() {
+    if (!WiFi.isConnected()) return;
+    loadCachedGPS();         // reads GPS coords from NVS
+    if (!s_gpsValid) return; // need GPS for traffic data
+
+    WazeMode savedMode = s_mode;
+
+    // Fetch TomTom hazards (accidents, hazards)
+    s_mode = WAZE_HAZARD;
+    if (fetchTomTom()) saveWazeCache();
+
+    // Fetch Waze police + road data (shared API, different filters)
+    s_mode = WAZE_POLICE;
+    if (fetchWaze()) saveWazeCache();
+
+    s_mode = savedMode;
 }
 
 // ── Shared init ───────────────────────────────────────────────────────────────

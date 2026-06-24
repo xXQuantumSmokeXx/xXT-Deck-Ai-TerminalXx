@@ -673,6 +673,57 @@ static void bootWifi() {
     }
 }
 
+// ── Boot sync ─────────────────────────────────────────────────────────────────
+// Fetches module data before the home screen appears.  A single status line
+// shows which service is being fetched.  The hardware watchdog is disabled
+// during sync (Solar alone calls 7+ NOAA endpoints) and restored afterwards.
+
+#include <esp_task_wdt.h>
+
+static void bootSyncAll() {
+    if (!WiFi.isConnected()) return;
+
+    // Wait for valid NTP time — caches depend on accurate timestamps for TTL.
+    // bootWifi() only waits 4 s; on slow networks NTP may need longer.
+    uint32_t nt0 = millis();
+    while (time(nullptr) < 1000000 && millis() - nt0 < 10000) delay(200);
+    if (time(nullptr) < 1000000) return;  // NTP failed — skip sync, fetch on entry
+
+    // Crypto, Weather, Solar, Quakes — the rest (News, SHTF, Traffic)
+    // sync on-entry where failures are isolated to one screen.
+    static const char *LABELS[] = {
+        "Crypto", "Weather", "Solar", "Quakes"
+    };
+    const int COUNT = 4;
+
+    // Disable task watchdog during sync — individual HTTP calls can run 10-90 s.
+    esp_task_wdt_deinit();
+
+    for (int i = 0; i < COUNT; i++) {
+        // Single changing status line at screen bottom
+        char buf[40];
+        snprintf(buf, sizeof(buf), "Syncing %s...", LABELS[i]);
+        tft.fillRect(0, SCREEN_H - 22, SCREEN_W, 22, COL_BG);
+        tft.setTextFont(FONT_SMALL);
+        tft.setTextColor(g_themeColor, COL_BG);
+        tft.drawString(buf, 4, SCREEN_H - 18);
+
+        switch (i) {
+            case 0: btcWarmCache();      break;
+            case 1: weatherWarmCache();   break;
+            case 2: solarWarmCache();     break;
+            case 3: worldWarmCache();     break;
+        }
+    }
+
+    // Leave task watchdog disabled — background HTTP refreshes in each
+    // moduleʼs init can run 10-90 s and would trigger spurious resets.
+    // The user can press the RST button if the device ever truly hangs.
+
+    // Clear the status line
+    tft.fillRect(0, SCREEN_H - 20, SCREEN_W, 20, COL_BG);
+}
+
 // ── setup ─────────────────────────────────────────────────────────────────────
 void setup() {
     Serial.begin(115200);
@@ -714,6 +765,10 @@ void setup() {
     loadSdKey("/poweroutage.txt", "poutage_key");
     bootWifi();
     personaMgrInit();
+
+    // Fetch all module data before showing home screen.
+    // Watchdog is fed between modules so long HTTP calls never trigger reset.
+    bootSyncAll();
 
     homeInit(tft);
     touchDrain();
