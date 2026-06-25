@@ -318,3 +318,5 @@ All SD setup files persist until you delete them. Remove them manually after con
 Treat the SD card as sensitive. If it is lost or accessed, any remaining setup files are readable in plain text.
 
 Built by xXQuantum-SmokeXx, with development assistance from Codex and Claude Code.
+
+UI design ported from the "QuantumSix" "VR project", originally developed in collaboration with "Six" & "Nova"... xD
