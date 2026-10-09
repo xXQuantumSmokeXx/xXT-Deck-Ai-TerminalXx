@@ -30,7 +30,7 @@
  * Anthropic spec:
  *   POST https://api.anthropic.com/v1/messages
  *   x-api-key: {key}  |  anthropic-version: 2023-06-01
- *   {"model":"...","max_tokens":1024,"messages":[...]}
+ *   {"model":"...","max_tokens":1024,"thinking":{"type":"disabled"},"messages":[...]}
  *   Response: {"content":[{"type":"text","text":"..."}]}
  */
 
@@ -344,7 +344,7 @@ bool loadConfigFromSD() {
         if (apiModel.length() == 0) apiModel = "gpt-4o-mini";
     } else if (apiType == "anthropic") {
         apiUrl = "https://api.anthropic.com";
-        if (apiModel.length() == 0) apiModel = "claude-3-5-haiku-20241022";
+        if (apiModel.length() == 0) apiModel = "claude-haiku-5-5";
     }
     SD.end();
     return apiType.length() > 0 && apiKey.length() > 0;
@@ -390,9 +390,9 @@ void setupApiConfig() {
         if (model.length() == 0) model = "gpt-4o-mini";
     } else {
         url   = "https://api.anthropic.com";
-        model = readLine("Model (blank=claude-3-5-haiku-20241022):");
+        model = readLine("Model (blank=claude-haiku-5-5):");
         model.trim();
-        if (model.length() == 0) model = "claude-3-5-haiku-20241022";
+        if (model.length() == 0) model = "claude-haiku-5-5";
     }
 
     apiType = type; apiKey = key; apiUrl = url; apiModel = model;
@@ -471,7 +471,12 @@ void sendMessage(const String &msg) {
     // Build request
     JsonDocument reqDoc;
     reqDoc["model"] = apiModel;
-    if (apiType == "anthropic") reqDoc["max_tokens"] = 1024;
+    if (apiType == "anthropic") {
+        reqDoc["max_tokens"] = 1024;
+        // Haiku 5.5+ thinks by default — disable it to keep the deck snappy
+        JsonObject thinking = reqDoc["thinking"].to<JsonObject>();
+        thinking["type"] = "disabled";
+    }
     JsonArray messages = reqDoc["messages"].to<JsonArray>();
     for (int i = 0; i < ctxCount; i++) {
         JsonObject m = messages.add<JsonObject>();
