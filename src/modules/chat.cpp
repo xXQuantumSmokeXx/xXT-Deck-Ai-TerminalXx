@@ -81,6 +81,11 @@ static int      s_scrollOff = 0;
 static String   s_inputBuf  = "";
 static String   s_aiTarget  = "";
 static String   s_assist[2] = {"", ""};
+// The Commander's code, held on the device and presented per request in X-Commander-Code.
+// The server compares it and tells the crew only the verdict; the code never enters a prompt
+// and is never echoed on screen (typed masked). Empty = this door reads as unverified, which
+// is a supported way to use it.
+static String   s_code      = "";
 
 
 // ── Rendering ─────────────────────────────────────────────────────────────────
@@ -275,6 +280,7 @@ static void sendMessage(const String &msg) {
         http.begin(client, endpoint);
         http.addHeader("Content-Type", "application/json");
         http.addHeader("ngrok-skip-browser-warning", "true");
+        if (s_code.length() > 0) http.addHeader("X-Commander-Code", s_code);
         http.setTimeout(60000);
         code = http.POST(body);
         if (code == 200) raw = http.getString();
@@ -283,6 +289,7 @@ static void sendMessage(const String &msg) {
         HTTPClient http;
         http.begin(endpoint);
         http.addHeader("Content-Type", "application/json");
+        if (s_code.length() > 0) http.addHeader("X-Commander-Code", s_code);
         http.setTimeout(60000);
         code = http.POST(body);
         if (code == 200) raw = http.getString();
@@ -345,6 +352,7 @@ void chatInit(TFT_eSPI &tft) {
     s_assist[0] = nvsGetString("assist1", ""); s_assist[0].toLowerCase();
     s_assist[1] = nvsGetString("assist2", ""); s_assist[1].toLowerCase();
     s_aiTarget  = nvsGetString("ai_target", s_assist[0]); s_aiTarget.toLowerCase();
+    s_code      = nvsGetString("commander_code", "");
     ctxClear();
 
     tft.fillScreen(COL_BG);
@@ -353,7 +361,7 @@ void chatInit(TFT_eSPI &tft) {
 
     PersonaDef *p = personaMgrGet();
     pushLine(">> " + String(p->name) + (p->title[0] ? " - " + String(p->title) : ""), g_themeColor);
-    pushWrapped("", "seturl setwifi setassist1 setassist2 persona clear", g_themeColor);
+    pushWrapped("", "seturl setwifi setassist1 setassist2 setcode persona clear", g_themeColor);
     redrawChatArea();
     redrawInput();
 }
@@ -391,6 +399,19 @@ bool chatLoop(TFT_eSPI &tft) {
                 pushLine("Assist" + String(idx + 1) + ": " + slug, COL_SYS);
             }
             scrollToBottom(); redrawInput();
+        } else if (msg == "setcode") {
+            // Presented on every request; compared server-side. Typed masked and never
+            // echoed back, so the screen cannot be shoulder-read. Blank clears it.
+            String code = readLine("Commander code (blank clears):", true);
+            code.trim();
+            nvsPutString("commander_code", code);
+            s_code = code;
+            tft.fillScreen(COL_BG); drawChatTopbar();
+            pushLine(code.length() > 0
+                        ? "Commander code set (" + String(code.length()) + " digits)."
+                        : "Commander code cleared - turns read as unverified.",
+                     COL_SYS);
+            redrawChatArea(); redrawInput();
         } else if (msg == "persona") {
             switchPersona();
         } else if (msg == "seturl") {

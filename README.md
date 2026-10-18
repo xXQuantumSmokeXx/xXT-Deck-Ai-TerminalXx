@@ -26,7 +26,7 @@ A tactical multi-function terminal for the LILYGO T-Deck ESP32-S3, consolidating
 
 ## Features
 
-- **AI CHAT** — SD-loaded personas, named assistants, HTTP backend with full conversation context
+- **AI CHAT** — four selectable AI personalities (the backend's closed set), named assistants, HTTP backend
 - **WEATHER** — Open-Meteo forecast with user-configured latitude and longitude, 5-day strip, stats row
 - **SOLAR** — NOAA/SWPC space weather: Kp history, 48h forecast, Bz, solar wind speed, flares, and CME data
 - **CODEX** — Dual-mode hub: **MY LOGS** (field notes on SD card, add/edit/delete with trackball cursor navigation) and **LIBRARY** (KJV scripture reader and other SD-hosted books with chapter index and paragraph-reflowed text)
@@ -93,20 +93,23 @@ Read on boot, saved to NVS. Delete after confirmed working.
 https://your-server-url.ngrok-free.app
 ```
 
-Sets the AI backend base URL. Chat requests go to `{portal_url}/simple`. Delete after confirmed working if desired.
+Sets the AI backend base URL. Chat requests go to `{portal_url}/<assistant>/simple`, where
+`<assistant>` is the slug set with `setassist1` (or `setassist2`). Delete after confirmed
+working if desired.
 
 **Expected request body:**
 
 ```json
 {
   "message": "hello",
-  "system": "persona system prompt",
-  "context": [
-    { "role": "user", "content": "previous message" },
-    { "role": "assistant", "content": "previous reply" }
-  ]
+  "agent_context": { "personality_profile": "Tactical" }
 }
 ```
+
+`personality_profile` is optional and must be one of `Standard`, `Tactical`, `Relaxed` or
+`Maximum Sass`; anything else falls back to `Standard`. Other keys are ignored, and a
+free-text `system` prompt is not accepted — the backend decides what each profile means.
+The device keeps its own scrollback for display and no longer sends it.
 
 **Expected response body:**
 
@@ -138,7 +141,8 @@ Saved to NVS on boot. Delete after confirmed working.
 
 ### Personas
 
-Persona files live in `/personas/` on the SD card:
+Each card names one of the backend's four personalities. The rest of the card is kept for
+your own notes and is **not** sent to the server.
 
 ```txt
 /personas/p1.txt
@@ -151,9 +155,13 @@ Persona files live in `/personas/` on the SD card:
 ```txt
 NAME
 Title or short role
-System prompt text goes here.
-It can span multiple lines.
+profile: Tactical
+Notes for this card - kept on the SD card, never sent.
 ```
+
+The `profile:` line may appear anywhere in the body and is removed before the notes are
+stored. Allowed values are `Standard`, `Tactical`, `Relaxed` and `Maximum Sass`; anything
+else — or no line at all — is treated as `Standard`.
 
 Slot 1 has a built-in fallback if `/personas/p1.txt` is missing. Slots 2 and 3 load only when their files are present. Type `persona` in AI CHAT to cycle slots. Type `setassist1` or `setassist2` to configure the display name shown in the chat header for each slot.
 
@@ -221,6 +229,7 @@ Use CoinGecko slugs, not ticker symbols. Falls back to `/coins.txt`, then to any
 | `seturl` | Change AI backend URL |
 | `setwifi` | Change WiFi credentials |
 | `setassist1` / `setassist2` | Set chat display name for persona slot 1 or 2 |
+| `setcode` | Store the Commander access code (masked prompt; blank clears). Sent with each request so the backend can verify the turn |
 | `persona` | Cycle loaded persona slot |
 | `clear` | Clear chat history and context |
 
