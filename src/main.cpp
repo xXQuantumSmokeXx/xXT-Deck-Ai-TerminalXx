@@ -763,6 +763,11 @@ void setup() {
     loadSdKey("/healthmap.txt",   "hmap_key");
     loadSdKey("/eia.txt",         "eia_key");
     loadSdKey("/poweroutage.txt", "poutage_key");
+    // Credentials too large or too error-prone to type on the keyboard (2026-10-18). A file
+    // wins over NVS when it exists, so dropping one on the card is the whole setup; settoken
+    // and setcode remain for changing or clearing them from the device.
+    loadSdKey("/portal_token.txt",   "portal_token");
+    loadSdKey("/commander_code.txt", "commander_code");
     bootWifi();
     personaMgrInit();
 

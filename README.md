@@ -87,6 +87,23 @@ strawberry
 
 Read on boot, saved to NVS. Delete after confirmed working.
 
+### `portal_token.txt` and `commander_code.txt`
+
+Both are credentials that are painful or impossible to type on the keyboard, so both can be
+placed on the SD card root and are loaded at boot into NVS. One line each, no labels:
+
+```txt
+SD root
+├── portal_token.txt     the portal's client token (32 hex characters)
+└── commander_code.txt   the Commander's access code (3 digits)
+```
+
+The **portal token** decides whether this device may talk through the portal at all; the
+**Commander code** decides whether a turn counts as the Commander's. Either can also be
+entered from AI CHAT with `settoken` / `setcode` (masked prompts; blank clears), and a file
+on the card overwrites what was stored when it is present. Both sit in plaintext on the card
+and in NVS — treat the card like a key.
+
 ### `portal.txt`
 
 ```txt
