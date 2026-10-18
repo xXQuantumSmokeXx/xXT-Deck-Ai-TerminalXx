@@ -7,46 +7,43 @@ device half lives here. An item that needs both says where the other half is.
 
 ───── NEXT ─────────────────────────────────────────────────────────────────────
 
-[ ] CHAT PERSONA IS DROPPED — send the profile in the JSON the firmware already builds.
-    MOVED HERE 2026-10-18 from MayDay-AI/todo.txt ("T-Deck AI chat"); that entry keeps the
-    server change and the crew-consent blocker, and nothing on this side starts until it
-    clears.
+(nothing open)
 
-    WHAT IS WRONG (verified 2026-10-16 against the running services). chat.cpp:253 posts to
-    <server_url>/<ai_target>/simple with
-        {"message": "...", "system": "<SD persona prompt>", "context": [...]}
-    /simple reads ONLY `message`; `system` and `context` are parsed and dropped. So an SD
-    persona's prompt has no effect (the brain's own personality always answers, and the name
-    drawn in the chat topbar is decoration), and the on-device history the device sends is
-    discarded in favour of the brain's own memory - so the two can drift apart.
+───── COMPLETED ────────────────────────────────────────────────────────────────
 
-    WHAT THIS REPO OWNS once MayDay-AI teaches /simple to read agent_context:
-      * send the persona prompt in the field the server will actually read;
-      * decide whether to keep sending `context` at all while it is unused - a payload the
-        server drops is a trap for the next reader.
+[x] CHAT WITH A PERSONA, TOKEN AND CODE — WORKING, TESTED ON THE DEVICE (2026-10-18).
+    The chat path was verified working on the T-Deck itself, not just built. The earlier
+    ngrok TLS EOF in serial-live.log (14:57) was the known ngrok-on-ESP32 handshake failure,
+    not a chat or credential fault; over the portal's LAN address the round-trip completes.
+    Treat ngrok as unusable from this device and keep server_url on the LAN address.
 
-    UNBLOCKED 2026-10-18. MayDay-AI's /simple now honours agent_context.personality_profile.
-    Send:
-        {"message": "...", "agent_context": {"personality_profile": "Tactical"}}
-    Only the four built-ins are accepted (Standard, Tactical, Relaxed, Maximum Sass); any
-    other value falls back to Standard. Everything else in agent_context is dropped, and the
-    free-text `system` field is now IGNORED server-side - so an SD persona card changes the
-    topbar name and nothing else until the cards are re-authored as one of the four profiles.
+    WHAT SHIPPED (built, flashed, tested):
+      * chat.cpp sends {"message": "...", "agent_context": {"personality_profile": "..."}}
+        and no longer sends `system` or `context` — a payload the server dropped was a trap
+        for the next reader;
+      * PersonaDef gained `profile`, read from a "profile: <name>" line anywhere in the card
+        and never sent to the server; p1.txt carries "profile: Standard", p2/p3 document the
+        line. Missing or unknown -> Standard, matching the server;
+      * the request carries X-Portal-Token and X-Commander-Code when each is loaded from the
+        SD card (portal_token.txt / commander_code.txt) or stored with settoken / setcode;
+        setcode and the credential guard landed at 14:11;
+      * chat logs url=..., assist=..., token=<len>, code=<len>, and the HTTP error on every
+        attempt, so an absent credential or a dead tunnel is visible instead of silent;
+      * .gitignore covers the SD-card credential and content files, so a broad `git add`
+        cannot sweep them in.
 
-    DONE 2026-10-18 (BUILT, NOT YET FLASHED). chat.cpp now sends
-        {"message": "...", "agent_context": {"personality_profile": "Tactical"}}
-    and no longer sends `system` or `context`. PersonaDef gained a `profile`, parsed from a
-    "profile: <name>" line anywhere in the card (not sent to the server); p1.txt now carries
-    "profile: Standard", and p2/p3 templates document the line. Unknown or missing -> Standard,
-    matching the server. pio run: SUCCESS.
-    STILL TO DO: flash it and confirm on the device that switching cards actually changes tone.
+    SERVER HALF: MayDay-AI/todo.txt, "T-DECK AI CHAT — THE SERVER HALF" (done 2026-10-18).
+    /simple honours agent_context.personality_profile, accepts only the four built-ins
+    (Standard, Tactical, Relaxed, Maximum Sass), falls back to Standard for anything else,
+    and ignores the SD card's free-text `system`. README.md documents the two credentials,
+    settoken and setcode.
 
     DO NOT "just switch endpoints": /chat and /chat_text are multipart + SSE, stream base64
     WAV the device would discard, and (through the portal) would make the device carry a PIN
     it currently, and deliberately, does not need. /v1/chat/completions is JSON-shaped and
     would suit the firmware, but it ignores a client-supplied system prompt, the portal does
-    not proxy it, and it would need a direct brain URL plus a PIN. The small fix is the right
-    one: server reads agent_context, device sends the profile.
+    not proxy it, and it would need a direct brain URL plus a PIN. The small fix was the
+    right one, and it is already in.
 
     CONTEXT, NOT A PROBLEM HERE: the phone app posts to /chat_text, which already accepts
-    agent_context - only the T-Deck door cannot carry a persona.
+    agent_context — only the T-Deck door could not carry a persona, and now it can.
