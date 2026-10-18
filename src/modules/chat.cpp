@@ -86,6 +86,9 @@ static String   s_assist[2] = {"", ""};
 // and is never echoed on screen (typed masked). Empty = this door reads as unverified, which
 // is a supported way to use it.
 static String   s_code      = "";
+// Portal token: which clients may chat through the portal at all (2026-10-18). Separate from
+// the Commander code - this one authorises the DOOR, the code authorises the turn.
+static String   s_token     = "";
 
 
 // ── Rendering ─────────────────────────────────────────────────────────────────
@@ -281,6 +284,7 @@ static void sendMessage(const String &msg) {
         http.addHeader("Content-Type", "application/json");
         http.addHeader("ngrok-skip-browser-warning", "true");
         if (s_code.length() > 0) http.addHeader("X-Commander-Code", s_code);
+        if (s_token.length() > 0) http.addHeader("X-Portal-Token", s_token);
         http.setTimeout(60000);
         code = http.POST(body);
         if (code == 200) raw = http.getString();
@@ -290,6 +294,7 @@ static void sendMessage(const String &msg) {
         http.begin(endpoint);
         http.addHeader("Content-Type", "application/json");
         if (s_code.length() > 0) http.addHeader("X-Commander-Code", s_code);
+        if (s_token.length() > 0) http.addHeader("X-Portal-Token", s_token);
         http.setTimeout(60000);
         code = http.POST(body);
         if (code == 200) raw = http.getString();
@@ -353,6 +358,7 @@ void chatInit(TFT_eSPI &tft) {
     s_assist[1] = nvsGetString("assist2", ""); s_assist[1].toLowerCase();
     s_aiTarget  = nvsGetString("ai_target", s_assist[0]); s_aiTarget.toLowerCase();
     s_code      = nvsGetString("commander_code", "");
+    s_token     = nvsGetString("portal_token", "");
     ctxClear();
 
     tft.fillScreen(COL_BG);
@@ -361,7 +367,7 @@ void chatInit(TFT_eSPI &tft) {
 
     PersonaDef *p = personaMgrGet();
     pushLine(">> " + String(p->name) + (p->title[0] ? " - " + String(p->title) : ""), g_themeColor);
-    pushWrapped("", "seturl setwifi setassist1 setassist2 setcode persona clear", g_themeColor);
+    pushWrapped("", "seturl setwifi setassist1 setassist2 setcode settoken persona clear", g_themeColor);
     redrawChatArea();
     redrawInput();
 }
@@ -411,6 +417,15 @@ bool chatLoop(TFT_eSPI &tft) {
                         ? "Commander code set (" + String(code.length()) + " digits)."
                         : "Commander code cleared - turns read as unverified.",
                      COL_SYS);
+            redrawChatArea(); redrawInput();
+        } else if (msg == "settoken") {
+            // Which clients may chat through the portal at all. Masked, never echoed.
+            String token = readLine("Portal token (blank clears):", true);
+            token.trim();
+            nvsPutString("portal_token", token);
+            s_token = token;
+            tft.fillScreen(COL_BG); drawChatTopbar();
+            pushLine(token.length() > 0 ? "Portal token set." : "Portal token cleared.", COL_SYS);
             redrawChatArea(); redrawInput();
         } else if (msg == "persona") {
             switchPersona();

@@ -111,6 +111,12 @@ working if desired.
 free-text `system` prompt is not accepted — the backend decides what each profile means.
 The device keeps its own scrollback for display and no longer sends it.
 
+**Two credentials, two different jobs.** If the backend portal enforces its own token, enter
+it once with `settoken`; it is sent as `X-Portal-Token` on every chat request and decides
+whether this device may talk through the portal at all. The Commander's code (`setcode`) is
+separate: it is sent as `X-Commander-Code` and decides whether the *turn* is treated as the
+Commander's. Neither is echoed on screen, and both live in NVS.
+
 **Expected response body:**
 
 ```json
@@ -240,6 +246,7 @@ Use CoinGecko slugs, not ticker symbols. Falls back to `/coins.txt`, then to any
 | `setwifi` | Change WiFi credentials |
 | `setassist1` / `setassist2` | Set chat display name for persona slot 1 or 2 |
 | `setcode` | Store the Commander access code (masked prompt; blank clears). Sent with each request so the backend can verify the turn |
+| `settoken` | Store the portal token (masked prompt; blank clears). Required when the backend portal enforces one |
 | `persona` | Cycle loaded persona slot |
 | `clear` | Clear chat history and context |
 
