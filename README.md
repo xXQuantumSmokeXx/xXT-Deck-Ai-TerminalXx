@@ -144,11 +144,21 @@ Saved to NVS on boot. Delete after confirmed working.
 Each card names one of the backend's four personalities. The rest of the card is kept for
 your own notes and is **not** sent to the server.
 
+**The folder is required and the names are fixed.** Create a folder called `personas` in the
+root of the SD card, then put the cards in it with exactly these names:
+
 ```txt
-/personas/p1.txt
-/personas/p2.txt
-/personas/p3.txt
+SD root
+└── personas
+    ├── p1.txt
+    ├── p2.txt
+    └── p3.txt
 ```
+
+The firmware reads those three paths directly — it does **not** create the folder and does
+**not** scan for other file names, so `six.txt` or `personas/Six.txt` on a case-sensitive
+card will simply be ignored. Slot 1 falls back to a built-in card when `p1.txt` is missing;
+slots 2 and 3 load only when their file is present.
 
 **File format:**
 
@@ -163,7 +173,7 @@ The `profile:` line may appear anywhere in the body and is removed before the no
 stored. Allowed values are `Standard`, `Tactical`, `Relaxed` and `Maximum Sass`; anything
 else — or no line at all — is treated as `Standard`.
 
-Slot 1 has a built-in fallback if `/personas/p1.txt` is missing. Slots 2 and 3 load only when their files are present. Type `persona` in AI CHAT to cycle slots. Type `setassist1` or `setassist2` to configure the display name shown in the chat header for each slot.
+Type `persona` in AI CHAT to cycle slots. Type `setassist1` or `setassist2` to configure the display name shown in the chat header for each slot.
 
 ### MY LOGS (CODEX)
 
