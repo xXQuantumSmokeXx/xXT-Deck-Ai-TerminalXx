@@ -25,6 +25,14 @@ device half lives here. An item that needs both says where the other half is.
       * decide whether to keep sending `context` at all while it is unused - a payload the
         server drops is a trap for the next reader.
 
+    UNBLOCKED 2026-10-18. MayDay-AI's /simple now honours agent_context.personality_profile.
+    Send:
+        {"message": "...", "agent_context": {"personality_profile": "Tactical"}}
+    Only the four built-ins are accepted (Standard, Tactical, Relaxed, Maximum Sass); any
+    other value falls back to Standard. Everything else in agent_context is dropped, and the
+    free-text `system` field is now IGNORED server-side - so an SD persona card changes the
+    topbar name and nothing else until the cards are re-authored as one of the four profiles.
+
     DO NOT "just switch endpoints": /chat and /chat_text are multipart + SSE, stream base64
     WAV the device would discard, and (through the portal) would make the device carry a PIN
     it currently, and deliberately, does not need. /v1/chat/completions is JSON-shaped and
