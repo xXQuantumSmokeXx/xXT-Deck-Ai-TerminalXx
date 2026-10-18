@@ -276,6 +276,7 @@ static void sendMessage(const String &msg) {
 
     int    code = -1;
     String raw  = "";
+    Serial.printf("[Chat] POST %s wifi=%d\n", endpoint.c_str(), (int)WiFi.status());
 
     if (isHttps) {
         WiFiClientSecure client; client.setInsecure();
@@ -301,6 +302,8 @@ static void sendMessage(const String &msg) {
         http.end();
     }
 
+    Serial.printf("[Chat] http=%d %s\n", code,
+                  code > 0 ? "" : HTTPClient::errorToString(code).c_str());
     if (s_histCount > 0 && s_history[s_histCount - 1].text == "...") s_histCount--;
 
     if (code == 200) {
@@ -360,6 +363,9 @@ void chatInit(TFT_eSPI &tft) {
     s_code      = nvsGetString("commander_code", "");
     s_token     = nvsGetString("portal_token", "");
     ctxClear();
+    Serial.printf("[Chat] url='%s' assist='%s' token=%d code=%d\n",
+                  nvsGetString("server_url", "").c_str(), s_aiTarget.c_str(),
+                  (int)s_token.length(), (int)s_code.length());
 
     tft.fillScreen(COL_BG);
     drawChatTopbar();

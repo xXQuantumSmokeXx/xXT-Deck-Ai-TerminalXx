@@ -13,7 +13,13 @@ firmware*.bin
 sd_card/
 wifi.txt
 portal.txt
-config.txt
+portal_token.txt
+commander_code.txt
+tomtom.txt
+donki.txt
+personas/
+logs/
+oracle/
 
 # OS/editor noise
 .DS_Store
