@@ -255,13 +255,14 @@ static void sendMessage(const String &msg) {
 
     JsonDocument reqDoc;
     reqDoc["message"] = msg;
-    if (p->systemPrompt.length() > 0) reqDoc["system"] = p->systemPrompt;
-    JsonArray ctx = reqDoc["context"].to<JsonArray>();
-    for (int i = 0; i < s_ctxCount; i++) {
-        JsonObject m = ctx.add<JsonObject>();
-        m["role"]    = s_ctx[i].role;
-        m["content"] = s_ctx[i].content;
-    }
+    // CLOSED persona (2026-10-18). The server accepts only its four known profiles and
+    // ignores free text, so the card's prompt text is no longer sent: the card picks a
+    // profile instead. agent_context is applied to THIS turn only and never stored.
+    JsonObject agentCtx = reqDoc["agent_context"].to<JsonObject>();
+    agentCtx["personality_profile"] = (p->profile.length() > 0) ? p->profile : String("Standard");
+    // `context` (on-device history) is deliberately no longer sent: /simple ignores it, and
+    // a payload the server drops is a trap for the next reader. The device keeps its own
+    // scrollback for display.
     String body;
     serializeJson(reqDoc, body);
 

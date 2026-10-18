@@ -11,6 +11,7 @@ struct PersonaDef {
     char     title[PERSONA_TITLE_LEN];
     uint16_t color;
     String   systemPrompt;
+    String   profile;      // one of Standard / Tactical / Relaxed / Maximum Sass (server's closed set)
     bool     loaded;
 };
 

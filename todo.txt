@@ -33,6 +33,14 @@ device half lives here. An item that needs both says where the other half is.
     free-text `system` field is now IGNORED server-side - so an SD persona card changes the
     topbar name and nothing else until the cards are re-authored as one of the four profiles.
 
+    DONE 2026-10-18 (BUILT, NOT YET FLASHED). chat.cpp now sends
+        {"message": "...", "agent_context": {"personality_profile": "Tactical"}}
+    and no longer sends `system` or `context`. PersonaDef gained a `profile`, parsed from a
+    "profile: <name>" line anywhere in the card (not sent to the server); p1.txt now carries
+    "profile: Standard", and p2/p3 templates document the line. Unknown or missing -> Standard,
+    matching the server. pio run: SUCCESS.
+    STILL TO DO: flash it and confirm on the device that switching cards actually changes tone.
+
     DO NOT "just switch endpoints": /chat and /chat_text are multipart + SSE, stream base64
     WAV the device would discard, and (through the portal) would make the device carry a PIN
     it currently, and deliberately, does not need. /v1/chat/completions is JSON-shaped and

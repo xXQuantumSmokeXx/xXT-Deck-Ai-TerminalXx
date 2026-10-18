@@ -33,6 +33,45 @@ static const uint16_t DEFAULT_COLORS[PERSONA_SLOT_COUNT] = {
 static PersonaDef s_slots[PERSONA_SLOT_COUNT];
 static int        s_current = 0;
 
+// ── Profile mapping ───────────────────────────────────────────────────────────
+// The server accepts only four personas (2026-10-18: both crew chose the closed set), so a
+// card names one of them. Anything else - including a missing line - falls back to Standard,
+// which is exactly what the server does with an unknown value.
+static String normaliseProfile(String raw) {
+    raw.trim();
+    raw.toLowerCase();
+    if (raw == "tactical")                                   return "Tactical";
+    if (raw == "relaxed")                                    return "Relaxed";
+    if (raw == "maximum sass" || raw == "max sass" || raw == "sass")
+                                                             return "Maximum Sass";
+    return "Standard";
+}
+
+// "profile: Tactical" on any line of the prompt block names the persona and is removed from
+// the prompt text, so the line never reaches the server and the card still reads naturally.
+static String extractProfile(String &prompt) {
+    String kept = "";
+    String chosen = "";
+    int start = 0;
+    while (start <= (int)prompt.length()) {
+        int nl = prompt.indexOf('\n', start);
+        String line = (nl < 0) ? prompt.substring(start) : prompt.substring(start, nl);
+        String lower = line;
+        lower.toLowerCase();
+        if (lower.startsWith("profile:")) {
+            chosen = line.substring(8);
+        } else {
+            if (kept.length()) kept += "\n";
+            kept += line;
+        }
+        if (nl < 0) break;
+        start = nl + 1;
+    }
+    prompt = kept;
+    prompt.trim();
+    return normaliseProfile(chosen);
+}
+
 // ── SD loader ─────────────────────────────────────────────────────────────────
 static bool loadSlotFromSD(int idx) {
     if (!SD.exists(SD_PATHS[idx])) return false;
@@ -46,12 +85,15 @@ static bool loadSlotFromSD(int idx) {
     prompt.trim();
     f.close();
 
+    String profile = extractProfile(prompt);
+
     // A file that only has placeholder comments counts as blank
     if (name.isEmpty() || name.startsWith("#")) return false;
 
     strlcpy(s_slots[idx].name,  name.c_str(),  PERSONA_NAME_LEN);
     strlcpy(s_slots[idx].title, title.c_str(), PERSONA_TITLE_LEN);
     s_slots[idx].systemPrompt = prompt;
+    s_slots[idx].profile      = profile;
     s_slots[idx].color        = DEFAULT_COLORS[idx];
     s_slots[idx].loaded       = true;
     return true;
@@ -64,6 +106,7 @@ void personaMgrInit() {
         memset(s_slots[i].name,  0, PERSONA_NAME_LEN);
         memset(s_slots[i].title, 0, PERSONA_TITLE_LEN);
         s_slots[i].systemPrompt = "";
+        s_slots[i].profile      = "Standard";
         s_slots[i].color        = DEFAULT_COLORS[i];
         s_slots[i].loaded       = false;
     }
