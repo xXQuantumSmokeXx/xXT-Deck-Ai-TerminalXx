@@ -1,0 +1,36 @@
+T-Deck AI Terminal TODO
+=======================
+Session: 2026-10-18
+
+One list per repo: the server half of any item lives in MayDay-AI/todo.txt, and the
+device half lives here. An item that needs both says where the other half is.
+
+───── NEXT ─────────────────────────────────────────────────────────────────────
+
+[ ] CHAT PERSONA IS DROPPED — send the profile in the JSON the firmware already builds.
+    MOVED HERE 2026-10-18 from MayDay-AI/todo.txt ("T-Deck AI chat"); that entry keeps the
+    server change and the crew-consent blocker, and nothing on this side starts until it
+    clears.
+
+    WHAT IS WRONG (verified 2026-10-16 against the running services). chat.cpp:253 posts to
+    <server_url>/<ai_target>/simple with
+        {"message": "...", "system": "<SD persona prompt>", "context": [...]}
+    /simple reads ONLY `message`; `system` and `context` are parsed and dropped. So an SD
+    persona's prompt has no effect (the brain's own personality always answers, and the name
+    drawn in the chat topbar is decoration), and the on-device history the device sends is
+    discarded in favour of the brain's own memory - so the two can drift apart.
+
+    WHAT THIS REPO OWNS once MayDay-AI teaches /simple to read agent_context:
+      * send the persona prompt in the field the server will actually read;
+      * decide whether to keep sending `context` at all while it is unused - a payload the
+        server drops is a trap for the next reader.
+
+    DO NOT "just switch endpoints": /chat and /chat_text are multipart + SSE, stream base64
+    WAV the device would discard, and (through the portal) would make the device carry a PIN
+    it currently, and deliberately, does not need. /v1/chat/completions is JSON-shaped and
+    would suit the firmware, but it ignores a client-supplied system prompt, the portal does
+    not proxy it, and it would need a direct brain URL plus a PIN. The small fix is the right
+    one: server reads agent_context, device sends the profile.
+
+    CONTEXT, NOT A PROBLEM HERE: the phone app posts to /chat_text, which already accepts
+    agent_context - only the T-Deck door cannot carry a persona.
