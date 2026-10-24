@@ -28,9 +28,6 @@ A tactical multi-function terminal for the LILYGO T-Deck ESP32-S3, consolidating
 | --- | --- | --- |
 | ![NEWS screen](images/T-Deck-Display/NEWS.png) | ![System screen](images/T-Deck-Display/System.png) | ![Oracle screen](Oracle.png) |
 
-The three homes are themes, not different screens: cyan, orange and purple, all
-set from SYSTEM → `T`. Screen captures come from `screenshot.py` over USB-CDC;
-`capture.bat` wraps it for a one-click grab on Windows.
 
 ## Features
 
