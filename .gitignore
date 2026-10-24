@@ -6,6 +6,7 @@
 # Generated firmware images
 firmware.bin
 firmware*.bin
+T-Deck-Ai-Terminal-*.bin
 *.elf
 *.map
 

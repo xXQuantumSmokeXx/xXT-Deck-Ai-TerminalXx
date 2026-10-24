@@ -12,26 +12,26 @@ A tactical multi-function terminal for the LILYGO T-Deck ESP32-S3, consolidating
 
 ## Display Gallery
 
-| AI Chat | Weather | Solar |
+| AI CHAT | WEATHER | SOLAR |
 | --- | --- | --- |
-| ![AI Chat screen](images/T-Deck-Display/Ai-Chat.png) | ![Weather screen](images/T-Deck-Display/Weather.png) | ![Solar screen](images/T-Deck-Display/Solar.png) |
+| ![AI CHAT screen](images/T-Deck-Display/Ai-Chat.png) | ![WEATHER screen](images/T-Deck-Display/Weather.png) | ![SOLAR screen](images/T-Deck-Display/Solar.png) |
 
-| CODEX | Crypto | Fires |
+| CODEX | CRYPTO | FIRES |
 | --- | --- | --- |
-| ![CODEX screen](images/T-Deck-Display/Codex.png) | ![Crypto screen](images/T-Deck-Display/Crypto.png) | ![Fires screen](images/T-Deck-Display/Fires.png) |
+| ![CODEX screen](images/T-Deck-Display/Codex.png) | ![CRYPTO screen](images/T-Deck-Display/Crypto.png) | ![FIRES screen](images/T-Deck-Display/Fires.png) |
 
 | USGS | AEWS | OUTAGES |
 | --- | --- | --- |
 | ![USGS screen](images/T-Deck-Display/USGS.png) | ![AEWS screen](images/T-Deck-Display/AEWS.png) | ![OUTAGES screen](images/T-Deck-Display/OUTAGES.png) |
 
-| NEWS | System | Oracle |
+| NEWS | SYSTEM | ORACLE |
 | --- | --- | --- |
-| ![NEWS screen](images/T-Deck-Display/NEWS.png) | ![System screen](images/T-Deck-Display/System.png) | ![Oracle screen](Oracle.png) |
+| ![NEWS screen](images/T-Deck-Display/NEWS.png) | ![SYSTEM screen](images/T-Deck-Display/System.png) | ![ORACLE screen](Oracle.png) |
 
 
 ## Features
 
-- **AI CHAT** — persona cards carrying one of the backend's four profiles, paired with two assistant slots (Six and Nova) over the portal's HTTP backend
+- **AI CHAT** — persona cards carrying one of the backend's four profiles, paired with two configurable assistant slots over an HTTP backend
 - **WEATHER** — Open-Meteo forecast with user-configured latitude and longitude, 5-day strip, stats row
 - **SOLAR** — NOAA/SWPC space weather via the Quantum-Meteor Worker: Kp history, 48h forecast, Bz, solar wind speed, flares, and CME data in one request
 - **CODEX** — Dual-mode hub: **MY LOGS** (field notes on SD card, add/edit/delete with trackball cursor navigation) and **LIBRARY** (KJV scripture reader and other SD-hosted books with chapter index and paragraph-reflowed text)
@@ -48,16 +48,16 @@ A tactical multi-function terminal for the LILYGO T-Deck ESP32-S3, consolidating
 ## Hardware Required
 
 - LILYGO T-Deck, ESP32-S3 version
-- microSD card for WiFi and portal credentials, assistant slugs, personas, the crypto list, cache, field logs, and library books
+- microSD card for WiFi, optional backend credentials, assistant slugs, personas, the crypto list, cache, field logs, and library books
 - WiFi network for AI backend, weather, the Quantum-Meteor feeds, and NTP sync
 
 ## Flashing
 
 **Option 1 — M5Launcher (SD card, no USB required):**
 
-1. Grab `Ai-Field-Terminal.bin` from the [latest release](https://github.com/xXQuantumSmokeXx/xXT-Deck-Ai-TerminalXx/releases/latest) and copy it to your SD card root.
+1. Grab `T-Deck-Ai-Terminal-v1.2.1.bin` from the [latest release](https://github.com/xXQuantumSmokeXx/xXT-Deck-Ai-TerminalXx/releases/latest) and copy it to your SD card root.
 2. Boot into M5Launcher on the T-Deck.
-3. Select `Ai-Field-Terminal.bin` and flash.
+3. Select `T-Deck-Ai-Terminal-v1.2.1.bin` and flash.
 
 **Option 2 — Build and flash from source:**
 
@@ -72,7 +72,7 @@ Or build the binary and copy it to SD for M5Launcher:
 
 ```sh
 pio run
-copy .pio\build\T-Deck\firmware.bin F:\Ai-Field-Terminal.bin
+copy .pio\build\T-Deck\firmware.bin F:\T-Deck-Ai-Terminal-v1.2.1.bin
 ```
 
 ## SD Card Setup
@@ -92,21 +92,21 @@ strawberry
 
 Read on boot, saved to NVS. Delete after confirmed working.
 
-### `portal_token.txt` and `commander_code.txt`
+### `portal_token.txt` and `commander_code.txt` — optional
 
-Both are credentials that are painful or impossible to type on the keyboard, so both can be
-placed on the SD card root and are loaded at boot into NVS. One line each, no labels:
+The reference backend (the MayDay portal) checks two credentials on every chat
+request. **If your backend doesn't, skip both files** — the device only sends
+the headers when a value is present.
 
 ```txt
 SD root
-├── portal_token.txt     the portal's client token (32 hex characters)
-└── commander_code.txt   the Commander's access code (3 digits)
+├── portal_token.txt     client token, sent as X-Portal-Token
+└── commander_code.txt   access code, sent as X-Commander-Code
 ```
 
-The **portal token** (`portal_token.txt`) decides whether this device may talk through the portal at
-all; the **Commander code** (`commander_code.txt`) decides whether a turn counts as the Commander's.
-`settoken` / `setcode` are the in-chat recovery path (masked prompts; blank clears). Both sit in
-plaintext on the card and in NVS — treat the card like a key.
+One line each, no labels. `settoken` / `setcode` are the in-chat recovery path
+(masked prompts; blank clears). Both sit in plaintext on the card and in NVS —
+treat the card like a key.
 
 ### `portal.txt`
 
@@ -149,10 +149,15 @@ the card and that slot's assistant together, so the two stay in step. `setassist
 free-text `system` prompt is not accepted — the backend decides what each profile means.
 The device keeps its own scrollback for display and no longer sends it.
 
-**Two credentials, two different jobs.** The token travels as `X-Portal-Token` on every chat
-request and decides whether this device may talk through the portal at all. The Commander's
-code travels as `X-Commander-Code` and decides whether the *turn* is treated as the Commander's.
-Neither is echoed on screen; both live in NVS and are seeded from the two files above.
+The chat call is a plain `POST {portal_url}/<assistant>/simple` carrying that
+JSON and expecting `{"response": "..."}` back, so any backend that speaks that
+contract works — the built-in portal is just the one this firmware was developed
+against. It also decides what each `personality_profile` means; the device only
+names one of the four.
+
+When `portal_token.txt` / `commander_code.txt` are present, the request also
+carries `X-Portal-Token` and `X-Commander-Code`. A backend that ignores those
+headers is fine — leave both files off the card.
 
 **Expected response body:**
 
