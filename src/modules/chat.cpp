@@ -249,12 +249,12 @@ static void sendMessage(const String &msg) {
     }
     if (base.isEmpty()) {
         if (s_histCount > 0 && s_history[s_histCount-1].text == "...") s_histCount--;
-        pushLine("ERR: no URL. Type seturl", COL_SYS);
+        pushLine("ERR: no URL. Add portal.txt to SD", COL_SYS);
         scrollToBottom(); return;
     }
     if (s_aiTarget.isEmpty()) {
         if (s_histCount > 0 && s_history[s_histCount-1].text == "...") s_histCount--;
-        pushLine("ERR: no assistant. Type setassist1", COL_SYS);
+        pushLine("ERR: no assistant. Add assist1.txt to SD", COL_SYS);
         scrollToBottom(); return;
     }
 
@@ -341,11 +341,29 @@ static void switchPersona() {
 
     if (personaMgrNext()) {
         s_histCount = 0; s_scrollOff = 0; ctxClear();
+
+        // Keep the card and the brain together (2026-10-23). `persona` used to
+        // relabel the header while requests kept going to the old target, so a
+        // NOVA card could answer as SIX. Slot N now owns the assistant set with
+        // setassistN; a slot with no assistant configured leaves the target alone.
+        int  slot = personaMgrCurrentSlot();
+        bool targetMoved = false;
+        if (slot >= 0 && slot < 2 && s_assist[slot].length() > 0 &&
+            !s_aiTarget.equalsIgnoreCase(s_assist[slot])) {
+            s_aiTarget = s_assist[slot];
+            nvsPutString("ai_target", s_aiTarget);
+            targetMoved = true;
+        }
+
         s_tft->fillScreen(COL_BG);
         drawChatTopbar();
         PersonaDef *p = personaMgrGet();
         pushLine(">> " + String(p->name), g_themeColor);
         if (p->title[0]) pushLine(p->title, g_themeColor);
+        if (targetMoved) {
+            String disp = s_aiTarget; disp.toUpperCase();
+            pushLine("Brain: " + disp, COL_SYS);
+        }
         redrawChatArea();
         redrawInput();
     }
@@ -373,7 +391,8 @@ void chatInit(TFT_eSPI &tft) {
 
     PersonaDef *p = personaMgrGet();
     pushLine(">> " + String(p->name) + (p->title[0] ? " - " + String(p->title) : ""), g_themeColor);
-    pushWrapped("", "seturl setwifi setassist1 setassist2 setcode settoken persona clear", g_themeColor);
+    pushWrapped("", "persona  clear  help", g_themeColor);
+    pushLine("setup: SD card (README)", COL_SYS);
     redrawChatArea();
     redrawInput();
 }
@@ -391,7 +410,13 @@ bool chatLoop(TFT_eSPI &tft) {
         s_inputBuf = "";
         redrawInput();
 
-        if (msg == "clear") {
+        if (msg == "help") {
+            pushWrapped("", "persona  next card + its assistant", COL_SYS);
+            pushWrapped("", "clear    wipe the conversation", COL_SYS);
+            pushWrapped("", "Everything else is configured from files on the SD card.", COL_SYS);
+            pushWrapped("", "Recovery: seturl setwifi setassist1 setassist2 setcode settoken", COL_SYS);
+            scrollToBottom(); redrawInput();
+        } else if (msg == "clear") {
             s_histCount = 0; s_scrollOff = 0; ctxClear();
             redrawChatArea(); redrawInput();
         } else if (msg.startsWith("setassist1") || msg.startsWith("setassist2")) {

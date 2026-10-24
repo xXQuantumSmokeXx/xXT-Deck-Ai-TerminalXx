@@ -18,8 +18,8 @@ static const TileDef TILES[TILE_COUNT] = {
     { "CRYPTO",   COL_CYAN    },  // 4
     { "FIRES",    COL_RED     },  // 5
     { "USGS",     COL_GREEN   },  // 6
-    { "SHTF",     COL_RED     },  // 7  SHTF monitor
-    { "TRAFFIC",  COL_GOLD    },  // 8  TomTom traffic incidents
+    { "AEWS",     COL_RED     },  // 7  jet anomaly index (worker /ews)
+    { "OUTAGES",  COL_GOLD    },  // 8  US power outages (worker /grid)
     { "ORACLE",   COL_PURPLE  },  // 9  Oracle divination
     { "NEWS",     COL_CYAN    },  // 10 RSS news feed
     { "SYSTEM",   COL_CYAN    },  // 11 System info
@@ -150,34 +150,28 @@ static void drawTileIcon(TFT_eSPI &t, int idx, int cx, int cy) {
         break;
     }
 
-    case 7: { // SHTF — shield outline with lightning bolt
-        // Shield
-        t.drawLine(cx-10, cy-12, cx+10, cy-12, C);
-        t.drawLine(cx-10, cy-12, cx-10, cy+0,  C);
-        t.drawLine(cx+10, cy-12, cx+10, cy+0,  C);
-        t.drawLine(cx-10, cy+0,  cx,    cy+12, C);
-        t.drawLine(cx+10, cy+0,  cx,    cy+12, C);
-        // Lightning bolt (double-stroke)
-        t.drawLine(cx+4,  cy-9,  cx-1,  cy-1,  C);
-        t.drawLine(cx+5,  cy-9,  cx,    cy-1,  C);
-        t.drawLine(cx-1,  cy-1,  cx+2,  cy-1,  C);
-        t.drawLine(cx+2,  cy-1,  cx-3,  cy+9,  C);
-        t.drawLine(cx+3,  cy-1,  cx-2,  cy+9,  C);
+    case 7: { // AEWS — business jet, top view, with a radar blip
+        // Fuselage + nose
+        t.fillRoundRect(cx - 2, cy - 12, 4, 25, 2, C);
+        t.fillTriangle(cx - 2, cy - 12, cx + 2, cy - 12, cx, cy - 16, C);
+        // Swept wings
+        t.fillTriangle(cx - 1, cy - 3, cx - 14, cy + 6, cx - 1, cy + 4, C);
+        t.fillTriangle(cx + 1, cy - 3, cx + 14, cy + 6, cx + 1, cy + 4, C);
+        // Tailplane
+        t.fillTriangle(cx - 1, cy + 8, cx - 8, cy + 13, cx - 1, cy + 12, C);
+        t.fillTriangle(cx + 1, cy + 8, cx + 8, cy + 13, cx + 1, cy + 12, C);
+        // Radar blip, upper left
+        t.drawCircle(cx - 9, cy - 9, 3, C);
+        t.fillCircle(cx - 9, cy - 9, 1, C);
         break;
     }
 
-    case 8: { // TRAFFIC — road + top-down car
-        // Road edge lines
-        t.drawFastVLine(cx-10, cy-13, 26, C);
-        t.drawFastVLine(cx+10, cy-13, 26, C);
-        // Centre dashes
-        t.drawFastVLine(cx, cy-13, 5, C);
-        t.drawFastVLine(cx, cy-3,  5, C);
-        t.drawFastVLine(cx, cy+7,  5, C);
-        // Top-down car (rounded rect + windshield + rear)
-        t.drawRoundRect(cx-6, cy-7, 12, 18, 2, C);
-        t.drawFastHLine(cx-4, cy-2, 8, C);
-        t.drawFastHLine(cx-4, cy+6, 8, C);
+    case 8: { // OUTAGES — thick lightning bolt
+        for (int o = -1; o <= 1; o++) {
+            t.drawLine(cx + 4 + o, cy - 14, cx - 5 + o, cy,      C);
+            t.drawLine(cx - 5 + o, cy,      cx + 2 + o, cy,      C);
+            t.drawLine(cx + 2 + o, cy,      cx - 4 + o, cy + 14, C);
+        }
         break;
     }
 

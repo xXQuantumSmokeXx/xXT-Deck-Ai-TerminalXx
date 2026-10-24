@@ -1,6 +1,6 @@
 # xXT-Deck-Ai-TerminalXx
 
-A tactical multi-function terminal for the LILYGO T-Deck ESP32-S3, consolidating AI chat, weather, space weather, cryptocurrency tracking, wildfire and earthquake monitoring, SHTF situational awareness, traffic and hazard alerts, offline tarot divination, field logging, scripture and reference reading, live news feeds, and system diagnostics into a single portable device.
+A tactical multi-function terminal for the LILYGO T-Deck ESP32-S3, consolidating AI chat, weather, space weather, cryptocurrency tracking, wildfire and earthquake monitoring, business-jet anomaly tracking, US power-outage monitoring, offline tarot divination, field logging, scripture and reference reading, live news feeds, and system diagnostics into a single portable device.
 
 [![Support on Patreon](https://img.shields.io/badge/Support-Patreon-orange)](https://www.patreon.com/c/xXQuantumSmokeXx)
 
@@ -24,27 +24,29 @@ A tactical multi-function terminal for the LILYGO T-Deck ESP32-S3, consolidating
 | --- | --- | --- |
 | ![USGS screen](images/T-Deck-Display/USGS.png) | ![System screen](images/T-Deck-Display/System.png) | ![Oracle screen](Oracle.png) |
 
+> These captures are from the 2026-10-18 build and predate the Quantum-Meteor data move, AEWS/OUTAGES, and the six-coin list. Refreshed screenshots are pending.
+
 ## Features
 
-- **AI CHAT** — four selectable AI personalities (the backend's closed set), named assistants, HTTP backend
+- **AI CHAT** — persona cards carrying one of the backend's four profiles, paired with two assistant slots (Six and Nova) over the portal's HTTP backend
 - **WEATHER** — Open-Meteo forecast with user-configured latitude and longitude, 5-day strip, stats row
-- **SOLAR** — NOAA/SWPC space weather: Kp history, 48h forecast, Bz, solar wind speed, flares, and CME data
+- **SOLAR** — NOAA/SWPC space weather via the Quantum-Meteor Worker: Kp history, 48h forecast, Bz, solar wind speed, flares, and CME data in one request
 - **CODEX** — Dual-mode hub: **MY LOGS** (field notes on SD card, add/edit/delete with trackball cursor navigation) and **LIBRARY** (KJV scripture reader and other SD-hosted books with chapter index and paragraph-reflowed text)
-- **CRYPTO** — Up to six CoinGecko favorites, 24h/7d movement, 7-day sparklines, and Fear & Greed index
-- **FIRES** — NASA EONET open wildfire events, live feed
-- **USGS** — Recent M3.5+ earthquake feed from USGS FDSNWS
-- **SHTF** — Situational awareness monitor: NWS real-time active alerts, FEMA declared disasters (with USGS significant earthquake fallback), CDC/ProMED outbreak feed, and a combined threat index. GPS-located. NVS-cached.
-- **TRAFFIC** — Nearby Waze hazards and road incidents within 2 km of your GPS location
+- **CRYPTO** — Up to six CoinGecko favorites in file order, 24h/7d movement, Fear & Greed, and 7-day sparklines on the two-coin card
+- **FIRES** — WFIGS active wildfires via the Quantum-Meteor Worker: name, state, acreage, and containment percent, merged and deduplicated server-side
+- **USGS** — 36 most recent M3.5+ earthquakes via the Quantum-Meteor Worker
+- **AEWS** — Apocalypse Early Warning System: tracks ~31,000 business jets against their historical baseline and scores the deviation (level 1–5, z-score) via the Worker. Data by [Kyle McDonald](https://ews.kylemcdonald.net/), ADS-B Exchange
+- **OUTAGES** — US power outages: national reported total, active incidents, top four states, and two 24-hour sparklines (national + your state). Source DOE/ORNL ODIN via the Worker; the local state comes from Cloudflare's view of the connection, so no location setup
 - **ORACLE** — Offline tarot reader: single card, three-card (Past/Present/Future), and five-card Celtic Cross spreads. Full 78-card deck with authentic upright and reversed meanings. Trackball and touch navigation, optional SD save.
-- **NEWS** — Live RSS headlines from CDC, WHO, ABC News, and BBC World. NVS-cached, 30-minute TTL.
+- **NEWS** — Ten headlines from the Quantum-Meteor Worker (Reddit r/news, NPR fallback). NVS-cached, 15-minute TTL.
 - **SYSTEM** — Device, WiFi, SD, heap, uptime, backend, persona status, and brightness control
-- All data screens NVS-cache their last successful fetch for instant load and offline resilience
+- All data screens cache their last successful fetch for instant load and offline resilience
 
 ## Hardware Required
 
 - LILYGO T-Deck, ESP32-S3 version
-- microSD card for WiFi bootstrap, personas, cache, field logs, and library books
-- WiFi network for AI backend, weather, solar, crypto, fire/quake feeds, and NTP sync
+- microSD card for WiFi and portal credentials, assistant slugs, personas, the crypto list, cache, field logs, and library books
+- WiFi network for AI backend, weather, the Quantum-Meteor feeds, and NTP sync
 
 ## Flashing
 
@@ -72,7 +74,7 @@ copy .pio\build\T-Deck\firmware.bin F:\Ai-Field-Terminal.bin
 
 ## SD Card Setup
 
-The firmware reads plain text files from the SD card root on boot. All setup files are optional after initial configuration — credentials and settings are persisted to NVS.
+The firmware reads plain text files from the SD card root on boot. All setup files are optional after initial configuration — credentials and settings are persisted to NVS — but a file present on the card always wins over the stored value.
 
 ### `wifi.txt`
 
@@ -98,11 +100,10 @@ SD root
 └── commander_code.txt   the Commander's access code (3 digits)
 ```
 
-The **portal token** decides whether this device may talk through the portal at all; the
-**Commander code** decides whether a turn counts as the Commander's. Either can also be
-entered from AI CHAT with `settoken` / `setcode` (masked prompts; blank clears), and a file
-on the card overwrites what was stored when it is present. Both sit in plaintext on the card
-and in NVS — treat the card like a key.
+The **portal token** (`portal_token.txt`) decides whether this device may talk through the portal at
+all; the **Commander code** (`commander_code.txt`) decides whether a turn counts as the Commander's.
+`settoken` / `setcode` are the in-chat recovery path (masked prompts; blank clears). Both sit in
+plaintext on the card and in NVS — treat the card like a key.
 
 ### `portal.txt`
 
@@ -111,8 +112,25 @@ https://your-server-url.ngrok-free.app
 ```
 
 Sets the AI backend base URL. Chat requests go to `{portal_url}/<assistant>/simple`, where
-`<assistant>` is the slug set with `setassist1` (or `setassist2`). Delete after confirmed
-working if desired.
+`<assistant>` is the slug from `assist1.txt` / `assist2.txt` (Slot 1 / Slot 2). Delete after
+confirmed working if desired.
+
+### `assist1.txt` and `assist2.txt`
+
+One line each: the assistant slug this device should address for persona slot 1 and slot 2.
+The portal serves `/six/*` and `/nova/*`, so those are the two values.
+
+```txt
+SD root
+├── assist1.txt   six
+└── assist2.txt   nova
+```
+
+Both files are optional; a missing one leaves whatever is in NVS untouched. `persona` switches
+the card and that slot's assistant together, so the two stay in step. `setassist1` /
+`setassist2` remain as a recovery path.
+
+### Chat API
 
 **Expected request body:**
 
@@ -128,11 +146,10 @@ working if desired.
 free-text `system` prompt is not accepted — the backend decides what each profile means.
 The device keeps its own scrollback for display and no longer sends it.
 
-**Two credentials, two different jobs.** If the backend portal enforces its own token, enter
-it once with `settoken`; it is sent as `X-Portal-Token` on every chat request and decides
-whether this device may talk through the portal at all. The Commander's code (`setcode`) is
-separate: it is sent as `X-Commander-Code` and decides whether the *turn* is treated as the
-Commander's. Neither is echoed on screen, and both live in NVS.
+**Two credentials, two different jobs.** The token travels as `X-Portal-Token` on every chat
+request and decides whether this device may talk through the portal at all. The Commander's
+code travels as `X-Commander-Code` and decides whether the *turn* is treated as the Commander's.
+Neither is echoed on screen; both live in NVS and are seeded from the two files above.
 
 **Expected response body:**
 
@@ -140,27 +157,7 @@ Commander's. Neither is echoed on screen, and both live in NVS.
 { "response": "assistant reply text" }
 ```
 
-You can also change the backend URL from within AI CHAT by typing `seturl`.
-
-### `tomtom.txt` — Optional
-
-The TRAFFIC screen uses the [TomTom Traffic Incidents API](https://developer.tomtom.com). Get a free API key and place it on the first line:
-
-```txt
-YOUR_TOMTOM_API_KEY
-```
-
-Saved to NVS on boot as `tomtom_key`. Delete after confirmed working.
-
-### `donki.txt` — Optional
-
-SOLAR uses NASA's public `DEMO_KEY` by default. For higher rate limits, get a free key at [api.nasa.gov](https://api.nasa.gov) and place it on the first line:
-
-```txt
-YOUR_NASA_DONKI_API_KEY
-```
-
-Saved to NVS on boot. Delete after confirmed working.
+If the card is not at hand, the backend URL can also be changed from AI CHAT with `seturl`.
 
 ### Personas
 
@@ -196,7 +193,7 @@ The `profile:` line may appear anywhere in the body and is removed before the no
 stored. Allowed values are `Standard`, `Tactical`, `Relaxed` and `Maximum Sass`; anything
 else — or no line at all — is treated as `Standard`.
 
-Type `persona` in AI CHAT to cycle slots. Type `setassist1` or `setassist2` to configure the display name shown in the chat header for each slot.
+Type `persona` in AI CHAT to cycle slots. Each card is paired with the assistant named in `assist1.txt` / `assist2.txt` for that slot, so switching the card switches the brain as well; a slot with no assistant set keeps the current one. The card supplies the display name, title and the `profile:` line sent with each turn — the note text is never sent. Typing an assistant's slug in the chat input switches that alone, without moving the card.
 
 ### MY LOGS (CODEX)
 
@@ -214,28 +211,37 @@ Place plain text books in the SD card root. The firmware auto-indexes them on fi
 /meditations.txt  ← Marcus Aurelius, etc.
 ```
 
-The firmware indexes any file matching `/*.txt` in the SD root. Gutenberg format works out of the box — paragraph reflow corrects the 70-character line wrapping so verses and paragraphs read as continuous text. Chapter headings are detected automatically using a blank-line sandwich heuristic (blank line before and after the heading). Any plain-text book with that structure will index cleanly.
+The firmware indexes any file matching `/*.txt` in the SD root. Gutenberg format works out of the box — paragraph reflow corrects the 70-character line wrapping so verses and paragraphs read as continuous text. Chapter headings are found from the text's own structure: lines that start with `CHAPTER`, `BOOK`, `PART`, `SURA`, `CANTO`, `SCENE`, `PSALM`, `SECTION` or `APPENDIX`; an inline `Chapter N` (some editions prefix the book name, e.g. `1 Nephi Chapter 1`); a bare number marker; and plain headings sitting between blank lines. Front matter is skipped, so the list starts at the text.
 
 **Tips for best results:**
 - Use the **Plain Text UTF-8** download option on Gutenberg — avoid HTML or EPUB
 - The KJV Bible (`kjv.txt`) is the primary tested title and is confirmed working
 - Very large files (500KB+) take a few seconds to index on first open; subsequent opens are instant from the cached `.idx` file
-- If a book indexes poorly, check that its chapter headings are each on their own line with a blank line above and below
+- Chapter detection (2026-10-23) accepts explicit structure — lines starting with `CHAPTER`, `BOOK`, `PART`, `SURA`, `CANTO`, `PSALM`, an inline `Chapter N` (e.g. `1 Nephi Chapter 1`), or a bare number — as well as plain headings between blank lines. Front matter (`Title:`, `Credits:`, `*** START OF…`) is skipped, and numbers are significant when de-duplicating, so counted headings no longer collapse into one entry
+- Indexes rebuild once after a firmware update that changes the format; existing `.idx` files are ignored, not deleted
+- A book whose text carries no chapter markers at all (Legge's Tao Te Ching, for example, runs chapter numbers into the prose) will still index coarsely — that is the text, not the parser
 
 ### Crypto Favorites
 
-Load up to six CoinGecko coin IDs from `/crypto.txt` (one per line):
+Load up to six CoinGecko coin IDs from `/crypto.txt`, one per line, in the order they should be
+displayed:
 
 ```txt
 bitcoin
-ethereum
-solana
-chainlink
-dogecoin
-litecoin
+zcash
+avalanche-2
+sui
+starknet
+internet-computer
 ```
 
-Use CoinGecko slugs, not ticker symbols. Falls back to `/coins.txt`, then to any on-device saved coins, then to the default BTC/ETH pair.
+Use CoinGecko IDs, not ticker symbols. Falls back to `/coins.txt`, then to coins saved on the
+device, then to the default BTC/ETH pair. The response is mapped back by ID, so market-cap rank
+never reorders the list.
+
+More than two coins switches the screen from the large card to the compact list — 32 px rows
+with symbol, name, price, 24 h and 7 d change, and no sparkline. One or two coins get the big
+card with the 7-day sparkline. Fear & Greed stays in the status bar either way.
 
 ## Controls
 
@@ -250,8 +256,9 @@ Use CoinGecko slugs, not ticker symbols. Falls back to `/coins.txt`, then to any
 
 ### Module Screens
 
-- **Trackball roll right** or **Q / Escape / Backspace / Delete**: return home
+- **Q / Escape / Backspace / Delete**: return home
 - **R**: refresh on data screens that support it
+- Trackball up/down scrolls lists where the screen has one
 
 ### AI CHAT
 
@@ -259,13 +266,14 @@ Use CoinGecko slugs, not ticker symbols. Falls back to `/coins.txt`, then to any
 | --- | --- |
 | Type + Enter | Send message |
 | Trackball up/down | Scroll chat history |
-| `seturl` | Change AI backend URL |
-| `setwifi` | Change WiFi credentials |
-| `setassist1` / `setassist2` | Set chat display name for persona slot 1 or 2 |
-| `setcode` | Store the Commander access code (masked prompt; blank clears). Sent with each request so the backend can verify the turn |
-| `settoken` | Store the portal token (masked prompt; blank clears). Required when the backend portal enforces one |
-| `persona` | Cycle loaded persona slot |
+| `persona` | Switch to the next card **and** that slot's assistant |
 | `clear` | Clear chat history and context |
+| `help` | List the commands, including the recovery set |
+| `seturl` / `setwifi` | Recovery only — overrides `portal.txt` / `wifi.txt` without the card |
+| `setassist1` / `setassist2` | Recovery only — overrides `assist1.txt` / `assist2.txt` |
+| `setcode` / `settoken` | Recovery only — overrides `commander_code.txt` / `portal_token.txt` (masked prompts; blank clears) |
+
+Setup is meant to live on the SD card; the `set…` commands exist so a card left at home does not brick the device.
 
 ### CODEX — MY LOGS
 
@@ -283,6 +291,9 @@ Use CoinGecko slugs, not ticker symbols. Falls back to `/coins.txt`, then to any
 | --- | --- |
 | Trackball up/down | Scroll page / navigate chapter list |
 | Enter | Open selected chapter |
+| J | Chapter index |
+| Space | Next page |
+| B | Book list |
 | Q / Backspace | Back / return to home |
 
 ### WEATHER
@@ -306,24 +317,29 @@ Use CoinGecko slugs, not ticker symbols. Falls back to `/coins.txt`, then to any
 | R | Save reading to SD (`/oracle/readings/`) |
 | Q / Backspace / Delete | Back / exit |
 
-### SHTF
+### SOLAR
 
-- **R**: force refresh all feeds — **L**: enter lat/lon manually — **G**: acquire hardware GPS — **Q**: home
-- Trackball up/down scrolls the outbreak list
-- GPS coordinates shared with TRAFFIC screen (stored as `waze_lat` / `waze_lon` in NVS)
-- FIPS county and state cached in NVS (`shtf_fips`, `shtf_county`, `shtf_state`). Cleared automatically when you change location.
+- **R**: force refresh — **Q**: home
+- One `/solar` request plus the SWPC 48 h Kp forecast; cached in NVS for an hour
 
-### TRAFFIC
+### AEWS
 
-- **R**: force refresh — **L**: enter lat/lon — **G**: acquire hardware GPS — **Q**: home
-- Trackball up/down scrolls the alert list
-- Requires a TomTom API key in `tomtom.txt` on the SD card (see SD Card Setup above)
+- **R**: force refresh — **Q**: home
+- Refetches on open when the last sync is older than 35 minutes (upstream updates every 30)
+- Reads `/ews` on the Quantum-Meteor Worker (~130 bytes)
+
+### OUTAGES
+
+- **R**: force refresh — **Q**: home
+- Refetches on open when the data is older than 10 minutes, matching the Worker's cache
+- Reads `/grid`; the local state is chosen from Cloudflare's geolocation of this device's connection, so there is nothing to configure
+- The 24 h history is sampled into the Worker every ~10 minutes and rolls over 24 h — the charts fill in during the first day
 
 ### NEWS
 
 - **R**: force refresh — **Q**: home
 - Trackball up/down scrolls headlines
-- Cached for 30 minutes in NVS; stale indicator shown when displaying cached data
+- Cached for 15 minutes in NVS and refetched on open when stale; a `~` prefix marks cached stories
 
 ### SYSTEM
 
@@ -333,20 +349,26 @@ Use CoinGecko slugs, not ticker symbols. Falls back to `/coins.txt`, then to any
 
 | Screen | Source |
 | --- | --- |
-| WEATHER | Open-Meteo forecast API |
-| SOLAR | NOAA/SWPC + NASA DONKI (flares, CME) |
+| WEATHER | Open-Meteo forecast API (direct) |
+| SOLAR | Quantum-Meteor `/solar` + SWPC 48 h Kp forecast (direct) |
 | CRYPTO | CoinGecko markets + Alternative.me Fear & Greed |
-| FIRES | NASA EONET open wildfire events |
-| USGS | USGS FDSNWS earthquake feed |
-| SHTF | NWS active alerts + FEMA declared disasters + USGS significant earthquakes (fallback) + CDC/ProMED RSS |
-| TRAFFIC | TomTom Traffic Incidents API (requires `tomtom.txt` key on SD) |
-| NEWS | CDC, WHO, ABC News, BBC World RSS feeds |
+| FIRES | Quantum-Meteor `/fire` (WFIGS, merged + deduped server-side) |
+| USGS | Quantum-Meteor `/quakes` (USGS CSV parsed server-side) |
+| AEWS | Quantum-Meteor `/ews` (Kyle McDonald's EWS / ADS-B Exchange) |
+| OUTAGES | Quantum-Meteor `/grid` (DOE/ORNL ODIN; MassOutage when keyed) |
+| NEWS | Quantum-Meteor `/news` (Reddit r/news, NPR fallback) |
 | ORACLE | Fully offline — no network required |
 | CODEX MY LOGS | Local SD card `/logs/field.log` |
 | CODEX LIBRARY | Local SD card plain text books |
 | SYSTEM | Local ESP32-S3 state |
 
-All data screens NVS-cache their last successful fetch so they display instantly on re-open and stay useful during brief offline periods. Press **R** on any data screen to force a fresh fetch.
+Six screens share one host: the **Quantum-Meteor** Cloudflare Worker
+(`quantum-meteor.qsmoke.workers.dev`). It does the multi-source merging and
+parsing server-side, so the device gets 0.1–5 KB of finished JSON instead of
+pulling 14–50 KB feeds itself. Weather is deliberately still direct — it is one
+small keyless request with no rate limit.
+
+All data screens keep their last successful fetch so they display instantly on re-open and stay useful during brief offline periods (WEATHER, SOLAR and NEWS persist it across reboots; the rest live in RAM). Press **R** on any data screen to force a fresh fetch.
 
 ## Security Notes
 
@@ -354,8 +376,7 @@ All SD setup files persist until you delete them. Remove them manually after con
 
 - **`wifi.txt`** — contains WiFi credentials
 - **`portal.txt`** — contains your backend URL
-- **`tomtom.txt`** — contains your TomTom API key
-- **`donki.txt`** — contains your NASA API key
+- **`portal_token.txt` / `commander_code.txt`** — credentials; together they are the key to the portal
 - **Persona files** — may contain private system prompts
 
 Treat the SD card as sensitive. If it is lost or accessed, any remaining setup files are readable in plain text.

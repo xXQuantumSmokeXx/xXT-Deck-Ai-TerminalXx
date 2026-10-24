@@ -1,15 +1,128 @@
 T-Deck AI Terminal TODO
 =======================
-Session: 2026-10-18
+Session: 2026-10-23 (Quantum-Meteor data layer, AEWS/OUTAGES, six-coin list, docs)
 
 One list per repo: the server half of any item lives in MayDay-AI/todo.txt, and the
 device half lives here. An item that needs both says where the other half is.
 
+STATE AT END OF SESSION
+- Firmware builds clean (RAM 26.5%, flash 18.0%). The SD card holds
+  `Ai-Terminal-2026-10-23.bin`; the 2 px coin-name nudge is built but not flashed.
+- Card config verified: `personas/p1.txt` = SIX, `p2.txt` = NOVA (both `profile:
+  Relaxed`), `assist1.txt` = six, `assist2.txt` = nova, `crypto.txt` = six coins,
+  portal / token / commander-code files all present and well-formed.
+- The Quantum-Meteor Worker was not modified at all this session.
+
 ───── NEXT ─────────────────────────────────────────────────────────────────────
 
-(nothing open)
+[ ] FLASH THE CARD BUILD AND SPOT-CHECK
+    - CRYPTO: six rows, coin names sitting clear of the symbols.
+    - AEWS and OUTAGES: the 10 px shifts, 12-hour timestamps.
+    - Boot line: 12-hour clock.
+    - AI CHAT: the help line reads `persona clear help`; `help` lists the rest.
+    - SOLAR: wind, Bz, density and CME populated (they were blank on the old build).
+
+[ ] REFRESH THE GALLERY IMAGES — every capture in `images/T-Deck-Display/` is
+    from the 2026-10-18 build and now shows the wrong tiles (SHTF/TRAFFIC), the
+    old SOLAR/NEWS, and a 4-coin list.
+    - Needed: home (AEWS/OUTAGES), AEWS, OUTAGES, CRYPTO (six rows + names),
+      SOLAR, FIRES, USGS, NEWS; chat/codex/oracle/system shots carry over unless
+      the tile or theme changed.
+    - Capture: `python screenshot.py COM<n>` over USB-CDC (device already on the
+      screen, not mid-fetch) or `GET http://<ip>/ss` (BMP) over WiFi; both 320×240.
+    - Replace the files in place so the README table keeps working.
+
+[ ] DECIDE THE NEXT TIER — discussed 2026-10-23, nothing started.
+    - Tier 2: VOLCANOES (own tile, or a second page under USGS) and ALMANAC
+      (needs a small /geo-backed location module). Neither touches the Worker.
+    - Tier 3: adopt CYD-Weather's weather module and add NOW / HOURLY / 5-DAY /
+      FIRETEAM. That is a data-layer and navigation rewrite, not a tile swap.
+    - Unresolved with it: whether News should get the agency feed set back through
+      a Worker route; today it is r/news + NPR.
 
 ───── COMPLETED ────────────────────────────────────────────────────────────────
+
+[x] SIX-COIN CRYPTO + SCREEN POLISH + DOC AUDIT (2026-10-23, second device pass).
+
+    * CRYPTO: `crypto.txt` is now six coins in file order — bitcoin, zcash,
+      avalanche-2, sui, starknet, internet-computer (BTC, ZEC, AVAX, SUI, STRK,
+      ICP). CoinGecko IDs checked against the live API. Compact rows gained the
+      coin name (x=4) on their second line, then moved it to ry+20 so it clears
+      the symbol; six rows still fit 192 px exactly, names truncate at 27 chars.
+    * Badge/README audit against the firmware:
+      - "Trackball roll right returns home" was never implemented — only
+        Q/ESC/Backspace/Delete are. Corrected.
+      - Crypto section shows the real six-ID file, file-order display, and the
+        >2-coin compact-list rule.
+      - LIBRARY still described the old blank-line heuristic; now documents the
+        keyword/inline-chapter/number rules and the front-matter skip.
+      - AEWS/OUTAGES/NEWS say "refetch on open when stale" instead of implying a
+        background timer (there isn't one).
+      - Credentials, portal URL and assistant slugs documented SD-first; set*
+        marked recovery-only; help/clear/persona documented.
+      - CODEX library keys J/Space/B added; SOLAR controls section added.
+      - Display Gallery labelled as 2026-10-18 captures.
+    * screenshot.py checked, not changed: still matches the firmware protocol
+      ('R' -> READY, 'S' -> "RGB332:" + 320x240), pyserial 3.5 + Pillow 12 are
+      installed, and the no-device path exits cleanly. It reads the panel over
+      USB-CDC, so the device must already be showing the screen and must not be
+      mid-fetch; GET /ss over WiFi (BMP) remains the alternative.
+    * Repo-root firmware.bin refreshed to match (gitignored, local only).
+
+[x] DEVICE FEEDBACK PASS (2026-10-23, after the first on-device test).
+
+    * AEWS: content block moved down 10 px off the top bar; the data and sync
+      timestamps are 12-hour now.
+    * OUTAGES: totals block moved down 10 px; the tile icon is a plain thick
+      bolt (the dashed supply line is gone); sync stamp 12-hour.
+    * Boot clock prints 12-hour (it was the only 24-hour display left).
+    * Chat setup moved onto the SD card: /assist1.txt and /assist2.txt load at
+      boot exactly like portal.txt, so the card configures the two assistants
+      ("six", "nova"). The on-screen command line is now `persona clear help`;
+      seturl/setwifi/setassistN/setcode/settoken still work but are recovery
+      only and are documented as such.
+    * CODEX indexer: dedup keeps digits (Book of Mormon went from 22 to 232
+      entries — every "1 Nephi Chapter N" had collapsed into one), keyword and
+      inline-chapter headings are indexed without needing a trailing blank
+      line, front matter is skipped, IDX_MAX raised to 280, IDX_VERSION 0x07
+      forces one rebuild on next open.
+    * SD: crypto.txt written (four coins at that point; six by the next pass).
+
+[x] QUANTUM-METEOR DATA LAYER, AEWS AND OUTAGES (2026-10-23).
+
+    WHAT SHIPPED (built, flashed and tested on the device the same day; final
+    build RAM 26.5%, flash 18.0%):
+      * SOLAR now makes one GET /solar (237 B) instead of seven requests. Two of
+        the old SWPC products it read — plasma-2-hour.json and mag-2-hour.json —
+        answer 404 today, and api.nasa.gov/DONKI/CME answers 503, which is why
+        wind, Bz, density and CME had gone blank. The Worker already reads the
+        paths that still work; the 48 h Kp forecast has no Worker route and is
+        still read directly from SWPC (6.9 KB, optional — a failure costs the
+        forecast strip only).
+      * USGS reads /quakes: 2.1 KB, 36 events (was 14.4 KB of GeoJSON, 20).
+      * FIRES reads /fire: 5 KB, WFIGS name/state/acreage/containment, merged
+        and deduped by IrwinID server-side (was 13.9 KB of EONET titles).
+      * NEWS reads /news: 1.1 KB, r/news with NPR fallback. The four-feed screen
+        was already down to two: CDC's rss.rss answers 200 with an empty body
+        and WHO's news-releases.xml is a 404. NVS keys moved to news2_* so the
+        old packed cache format is ignored instead of misread.
+      * TRAFFIC and SHTF are gone: waze.cpp/h, shtf.cpp/h, their tile IDs,
+        screen states, launch/loop arms, the SD key loaders (tomtom, waze,
+        healthmap, eia, poweroutage) and the README sections. The NWS alerts,
+        FEMA declarations and CDC/ProMED outbreak feeds went with SHTF — AEWS
+        does not replace them.
+      * AEWS and OUTAGES ported from CYD-Weather into slot 7/8. New modules,
+        boot-warmed, R = refresh, Q = home. OUTAGES needs no location setting:
+        /grid picks the local state from Cloudflare's request.cf.region.
+      * FONT_NUM (TFT_eSPI font 7) added to theme.h and LOAD_FONT7 to
+        platformio.ini for the AEWS level readout.
+      * Chat: `persona` now also moves the backend target to the assistant
+        configured for that slot (`setassist1`/`setassist2`), so a NOVA card can
+        no longer answer as SIX. A slot with no assistant configured leaves the
+        target alone. Typing a slug still switches the brain without the card.
+      * Weather was deliberately left direct (Open-Meteo, 934 B, keyless) and
+        the Worker was not modified at all — every route this uses already
+        existed.
 
 [x] CHAT WITH A PERSONA, TOKEN AND CODE — WORKING, TESTED ON THE DEVICE (2026-10-18).
     The chat path was verified working on the T-Deck itself, not just built. The earlier

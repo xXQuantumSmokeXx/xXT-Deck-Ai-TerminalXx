@@ -1,4 +1,4 @@
-﻿# PlatformIO build output
+# PlatformIO build output
 .pio/
 .pioenvs/
 .piolibdeps/
@@ -15,8 +15,9 @@ wifi.txt
 portal.txt
 portal_token.txt
 commander_code.txt
-tomtom.txt
-donki.txt
+assist1.txt
+assist2.txt
+crypto.txt
 personas/
 logs/
 oracle/

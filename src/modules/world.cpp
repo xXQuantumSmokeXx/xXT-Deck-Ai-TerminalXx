@@ -1,33 +1,43 @@
 #include "world.h"
 #include "../ui/theme.h"
 #include "../ui/widgets.h"
+#include "../net/json_get.h"
 #include <Wire.h>
 #include <WiFi.h>
-#include <WiFiClientSecure.h>
-#include <HTTPClient.h>
-#include <ArduinoJson.h>
 #include <time.h>
 
-#define KB_ADDR    0x55
-#define MAX_ITEMS  20
-#define ROW_H      16
-#define WORLD_CACHE_TTL_SEC 3600
+// Quakes and fires now come from the Quantum-Meteor Worker. The device used to
+// pull 14 KB of USGS GeoJSON and 14 KB of EONET events and parse both; the
+// Worker serves 2.1 KB (36 quakes) and 5 KB (a merged, deduped WFIGS list).
+// USGS row fields are unchanged; fires gained state, acreage and containment
+// from WFIGS, so the row shows those instead of a bare title.
+
+#define KB_ADDR        0x55
+#define QUAKE_MAX      36
+#define FIRE_MAX       24
+#define ROW_H          16
+
+#define QUAKE_TTL_SEC  (15 * 60)
+#define FIRE_TTL_SEC   (30 * 60)
 
 // ── Data models ───────────────────────────────────────────────────────────────
 struct QuakeItem {
     float mag;
     char  place[72];
-    char  when[15];
+    char  when[12];
 };
 
 struct FireItem {
-    char  title[72];
-    char  when[15];
+    char  name[64];
+    char  state[4];
+    long  acres;
+    int   contained;
+    char  when[12];
 };
 
-static QuakeItem  s_quakes[MAX_ITEMS];
+static QuakeItem  s_quakes[QUAKE_MAX];
 static int        s_quakeCount   = 0;
-static FireItem   s_fires[MAX_ITEMS];
+static FireItem   s_fires[FIRE_MAX];
 static int        s_fireCount    = 0;
 static bool       s_showingFires  = false;
 static int        s_worldScrollOff = 0;
@@ -82,22 +92,11 @@ static String fitTextPx(const char *src, int maxPx) {
     return String("..");
 }
 
-static void msToWhen(long long ms, char *out, int outLen) {
-    time_t t = (time_t)(ms / 1000LL);
-    struct tm *ti = gmtime(&t);
-    if (ti) {
-        snprintf(out, outLen, "%02d-%02d %02d:%02d",
-                 ti->tm_mon + 1, ti->tm_mday, ti->tm_hour, ti->tm_min);
-    } else {
-        strlcpy(out, "--", (size_t)outLen);
-    }
-}
-
-static bool cacheFresh(time_t fetchedAt, int count) {
+static bool cacheFresh(time_t fetchedAt, int count, int ttlSec) {
     if (count <= 0 || fetchedAt <= 0) return false;
     time_t now = time(nullptr);
     if (now <= 1000000) return true;
-    return (now - fetchedAt) <= WORLD_CACHE_TTL_SEC;
+    return (now - fetchedAt) <= ttlSec;
 }
 
 static uint16_t magColor(float mag) {
@@ -107,98 +106,68 @@ static uint16_t magColor(float mag) {
     return g_themeColor;
 }
 
-// ── Quake fetch — USGS FDSNWS query (12 most recent M3.5+) ───────────────────
+// Worker sends WFIGS discovery time as epoch milliseconds.
+static void msToDay(long long ms, char *out, int outLen) {
+    time_t t = (time_t)(ms / 1000LL);
+    struct tm lt;
+    if (t > 0 && localtime_r(&t, &lt)) snprintf(out, outLen, "%02d-%02d", lt.tm_mon + 1, lt.tm_mday);
+    else                               strlcpy(out, "--", (size_t)outLen);
+}
+
+static void fmtAcres(long a, char *out, int outLen) {
+    if (a >= 100000)     snprintf(out, outLen, "%ldk", a / 1000);
+    else if (a >= 1000)  snprintf(out, outLen, "%.1fk", a / 1000.0);
+    else                 snprintf(out, outLen, "%ld", a);
+}
+
+// ── Quake fetch — /quakes {items:[{m,p,w}]} ─────────────────────────────────
 static bool fetchQuakes() {
     s_quakeCount = 0;
 
-    WiFiClientSecure cl;
-    cl.setInsecure();
-    HTTPClient http;
-    http.begin(cl,
-        "https://earthquake.usgs.gov/fdsnws/event/1/query"
-        "?format=geojson&minmagnitude=3.5&limit=20&orderby=time");
-    http.setTimeout(15000);
-    http.addHeader("User-Agent", "T-Deck-AI/1.0");
-
-    int code = http.GET();
-    if (code != 200) { http.end(); return false; }
-    String body = http.getString();
-    http.end();
-
-    JsonDocument filt;
-    filt["features"][0]["properties"]["mag"]   = true;
-    filt["features"][0]["properties"]["place"] = true;
-    filt["features"][0]["properties"]["time"]  = true;
-
     JsonDocument doc;
-    DeserializationError err = deserializeJson(doc, body, DeserializationOption::Filter(filt));
-    if (err) return false;
+    if (!httpJson(QM_BASE "/quakes", doc, 12000)) return false;
 
-    for (JsonObject f : doc["features"].as<JsonArray>()) {
-        if (s_quakeCount >= MAX_ITEMS) break;
-        JsonObject p = f["properties"];
-        if (p.isNull()) continue;
+    JsonArray items = doc["items"].as<JsonArray>();
+    if (items.isNull()) return false;
 
-        float       mag   = p["mag"].isNull()   ? 0.0f : p["mag"].as<float>();
-        const char *place = p["place"].isNull() ? "Unknown" : p["place"].as<const char *>();
-        long long   ms    = p["time"].isNull()  ? 0LL : p["time"].as<long long>();
+    for (JsonVariant it : items) {
+        if (s_quakeCount >= QUAKE_MAX) break;
+        const char *place = it["p"] | "";
+        if (!place[0]) continue;
 
         QuakeItem &q = s_quakes[s_quakeCount++];
-        q.mag = mag;
-        truncStr(place ? place : "Unknown", q.place, (int)sizeof(q.place) - 1);
-        if (ms > 0) msToWhen(ms, q.when, (int)sizeof(q.when));
-        else        strlcpy(q.when, "--", sizeof(q.when));
+        q.mag = it["m"] | 0.0f;
+        truncStr(place, q.place, (int)sizeof(q.place) - 1);
+        strlcpy(q.when, it["w"] | "--", sizeof(q.when));
     }
+
     if (s_quakeCount > 0) s_quakeFetchedAt = time(nullptr);
     return s_quakeCount > 0;
 }
 
-// ── Fire fetch — NASA EONET open wildfire events ──────────────────────────────
-// EONET is more reliable than ArcGIS WFIGS and returns clean JSON with fire
-// name + date. HTTP/1.0 avoids chunked encoding for stream-safe ArduinoJson parse.
+// ── Fire fetch — /fire {items:[{n,s,ac,pc,t}]} ──────────────────────────────
 static bool fetchFires() {
     s_fireCount = 0;
 
-    WiFiClientSecure cl;
-    cl.setInsecure();
-    HTTPClient http;
-    http.begin(cl,
-        "https://eonet.gsfc.nasa.gov/api/v3/events"
-        "?category=wildfires&status=open&limit=20");
-    http.setTimeout(15000);
-    http.addHeader("User-Agent", "T-Deck-AI/1.0");
-
-    int code = http.GET();
-    if (code != 200) { http.end(); return false; }
-    String body = http.getString();
-    http.end();
-
-    JsonDocument filt;
-    filt["events"][0]["title"]               = true;
-    filt["events"][0]["geometry"][0]["date"] = true;
-
     JsonDocument doc;
-    DeserializationError err = deserializeJson(doc, body, DeserializationOption::Filter(filt));
-    if (err) return false;
+    if (!httpJson(QM_BASE "/fire", doc, 15000)) return false;
 
-    JsonArray events = doc["events"].as<JsonArray>();
-    if (events.isNull()) return false;
+    JsonArray items = doc["items"].as<JsonArray>();
+    if (items.isNull()) return false;
 
-    for (JsonObject ev : events) {
-        if (s_fireCount >= MAX_ITEMS) break;
-
-        const char *title = ev["title"].isNull() ? "Unknown Fire" : ev["title"].as<const char *>();
-        const char *date  = ev["geometry"][0]["date"].isNull() ? "" : ev["geometry"][0]["date"].as<const char *>();
+    for (JsonVariant it : items) {
+        if (s_fireCount >= FIRE_MAX) break;
+        const char *name = it["n"] | "";
+        if (!name[0]) continue;
 
         FireItem &fi = s_fires[s_fireCount++];
-        truncStr(title, fi.title, (int)sizeof(fi.title) - 1);
-
-        // Date: "2025-05-07T12:00:00Z" → "05-07"
-        if (date && strlen(date) >= 10)
-            snprintf(fi.when, sizeof(fi.when), "%.5s", date + 5);
-        else
-            strlcpy(fi.when, "--", sizeof(fi.when));
+        truncStr(name, fi.name, (int)sizeof(fi.name) - 1);
+        strlcpy(fi.state, it["s"] | "--", sizeof(fi.state));
+        fi.acres     = it["ac"] | 0L;
+        fi.contained = it["pc"] | 0;
+        msToDay(it["t"] | 0LL, fi.when, (int)sizeof(fi.when));
     }
+
     if (s_fireCount > 0) s_fireFetchedAt = time(nullptr);
     return s_fireCount > 0;
 }
@@ -228,7 +197,7 @@ static void drawWorldHeader(const char *title, const char *countLabel, int count
 // ── Quakes screen ─────────────────────────────────────────────────────────────
 static void drawQuakesScreen() {
     s_tft->fillScreen(COL_BG);
-    drawWorldHeader("< HOME | USGS", "M3.5+ 30-DAY", s_quakeCount);
+    drawWorldHeader("< HOME | USGS", "M3.5+", s_quakeCount);
 
     int cy = CONTENT_Y;
 
@@ -238,7 +207,7 @@ static void drawQuakesScreen() {
         s_tft->drawCentreString("NO DATA", SCREEN_W / 2, cy + 30, FONT_MED);
         s_tft->setTextFont(FONT_SMALL);
         s_tft->setTextColor(g_themeColor, COL_BG);
-        s_tft->drawCentreString(!WiFi.isConnected() ? "OFFLINE" : "No M3.5+ quakes this month",
+        s_tft->drawCentreString(!WiFi.isConnected() ? "OFFLINE" : "Worker unreachable",
                                 SCREEN_W / 2, cy + 52, FONT_SMALL);
         drawMenuBar(*s_tft, "R=REFRESH  Q=HOME");
         return;
@@ -275,7 +244,7 @@ static void drawQuakesScreen() {
 // ── Fires screen ──────────────────────────────────────────────────────────────
 static void drawFiresScreen() {
     s_tft->fillScreen(COL_BG);
-    drawWorldHeader("< HOME | FIRES", "FIRES YTD", s_fireCount);
+    drawWorldHeader("< HOME | FIRES", "WILDFIRES", s_fireCount);
 
     int cy = CONTENT_Y;
 
@@ -285,7 +254,7 @@ static void drawFiresScreen() {
         s_tft->drawCentreString("NO DATA", SCREEN_W / 2, cy + 30, FONT_MED);
         s_tft->setTextFont(FONT_SMALL);
         s_tft->setTextColor(g_themeColor, COL_BG);
-        s_tft->drawCentreString(!WiFi.isConnected() ? "OFFLINE" : "No wildfires tracked this year",
+        s_tft->drawCentreString(!WiFi.isConnected() ? "OFFLINE" : "Worker unreachable",
                                 SCREEN_W / 2, cy + 52, FONT_SMALL);
         drawMenuBar(*s_tft, "R=REFRESH  Q=HOME");
         return;
@@ -301,14 +270,24 @@ static void drawFiresScreen() {
         s_tft->setTextColor(COL_AMBER, COL_BG);
         s_tft->drawString("\x2A", 2, y + 2);
 
-        int dw = s_tft->textWidth(fi.when);
-        int dateX = SCREEN_W - dw - 2;
-        String title = fitTextPx(fi.title, dateX - 16);
-        s_tft->setTextColor(g_themeColor, COL_BG);
-        s_tft->drawString(title, 12, y + 2);
+        // Right column: state, acreage, containment. The date moved to the
+        // title's line only when there is no acreage to show.
+        char acres[10], right[24];
+        fmtAcres(fi.acres, acres, sizeof(acres));
+        if (fi.contained > 0)
+            snprintf(right, sizeof(right), "%s %sac %d%%", fi.state, acres, fi.contained);
+        else
+            snprintf(right, sizeof(right), "%s %sac", fi.state, acres);
+
+        int rw = s_tft->textWidth(right);
+        int rightX = SCREEN_W - rw - 2;
+        String name = fitTextPx(fi.name, rightX - 16);
 
         s_tft->setTextColor(g_themeColor, COL_BG);
-        s_tft->drawString(fi.when, dateX, y + 2);
+        s_tft->drawString(name, 12, y + 2);
+
+        s_tft->setTextColor(g_themeColor, COL_BG);
+        s_tft->drawString(right, rightX, y + 2);
     }
 
     drawMenuBar(*s_tft, "R=REFRESH  Q=HOME");
@@ -316,11 +295,11 @@ static void drawFiresScreen() {
 
 // ── Boot-time cache warming ──────────────────────────────────────────────────
 // Called once at startup before the user navigates to any screen.
-// Populates in-memory cache so worldInit() / worldInitFires() always find data ready.
+// Populates in-memory cache so worldInit() / worldInitFires() find data ready.
 void worldWarmCache() {
     if (!WiFi.isConnected()) return;
-    fetchQuakes();           // fetches from USGS, sets s_quakeFetchedAt
-    fetchFires();            // fetches from NASA FIRMS, sets s_fireFetchedAt
+    fetchQuakes();
+    fetchFires();
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -329,7 +308,7 @@ void worldInit(TFT_eSPI &tft) {
     s_showingFires  = false;
     s_worldScrollOff = 0;
     updateSyncStr();
-    if (!cacheFresh(s_quakeFetchedAt, s_quakeCount)) {
+    if (!cacheFresh(s_quakeFetchedAt, s_quakeCount, QUAKE_TTL_SEC)) {
         tft.fillScreen(COL_BG);
         drawTopbar(tft, "< HOME | USGS", "", g_themeColor);
         tft.setTextFont(FONT_SMALL);
@@ -346,7 +325,7 @@ void worldInitFires(TFT_eSPI &tft) {
     s_showingFires  = true;
     s_worldScrollOff = 0;
     updateSyncStr();
-    if (!cacheFresh(s_fireFetchedAt, s_fireCount)) {
+    if (!cacheFresh(s_fireFetchedAt, s_fireCount, FIRE_TTL_SEC)) {
         tft.fillScreen(COL_BG);
         drawTopbar(tft, "< HOME | FIRES", "", g_themeColor);
         tft.setTextFont(FONT_SMALL);

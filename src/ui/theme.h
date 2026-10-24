@@ -30,6 +30,7 @@
 #define FONT_SMALL  1   // 8px  — status text, labels
 #define FONT_MED    2   // 16px — chat text, tiles
 #define FONT_LARGE  4   // 26px — big numbers
+#define FONT_NUM    7   // 48px seven-segment — AEWS level readout (LOAD_FONT7)
 
 // ── Layout constants ──────────────────────────────────────────────────────────
 #define TOPBAR_H     20

@@ -473,6 +473,13 @@ static void drawBtcScreen() {
             s_tft->setTextColor(g_themeColor, COL_BG);
             s_tft->drawString("24H", 190, ry + 16);
             s_tft->drawString("7D", 252, ry + 16);
+
+            // Coin name on the second line, under the symbol. That half of the
+            // row was dead space (the 24H/7D labels start at x=190), so six
+            // rows keep their names without taking height from anything.
+            char nameBuf[28];
+            strlcpy(nameBuf, c.name, sizeof(nameBuf));
+            s_tft->drawString(nameBuf, 4, ry + 20);
         }
 
         drawMenuBar(*s_tft, "Q=HOME  R=REFRESH  C=COINS");

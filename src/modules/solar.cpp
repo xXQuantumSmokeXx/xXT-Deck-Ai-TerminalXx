@@ -2,6 +2,7 @@
 #include "../ui/theme.h"
 #include "../ui/widgets.h"
 #include "../config/nvs_config.h"
+#include "../net/json_get.h"
 #include <Wire.h>
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
@@ -10,16 +11,18 @@
 #include <math.h>
 #include <time.h>
 
+// One request to the Quantum-Meteor /solar route replaces the five SWPC
+// products and the DONKI CME lookup this screen used to pull itself. Two of
+// those SWPC paths (plasma-2-hour, mag-2-hour) have since been retired with a
+// 404, and DONKI's api.nasa.gov door answers 503 — the Worker already reads
+// the paths that still work. The 48 h Kp forecast has no Worker route and is
+// still fetched from SWPC directly; it is optional, so a failure costs the
+// forecast strip and nothing else.
+
 #define KB_ADDR        0x55
-#define CACHE_TTL_SEC   3600  // 1 hour
-#define DONKI_API_KEY_DEFAULT  "DEMO_KEY"
+#define CACHE_TTL_SEC  3600  // 1 hour
 
 // ── Data model ────────────────────────────────────────────────────────────────
-static String donkiApiKey() {
-    String key = nvsGetString("donki_key", DONKI_API_KEY_DEFAULT);
-    key.trim();
-    return key.isEmpty() ? String(DONKI_API_KEY_DEFAULT) : key;
-}
 struct SolarData {
     float kpCurrent;
     float kpHistory[8];
@@ -30,7 +33,6 @@ struct SolarData {
     float densityPcc;
     float xrayFlux;
     char  xrayClass[6];
-    // NASA DONKI
     char  flareClass[8];    // "M1.5", "X2.1", "NONE"
     char  flareTime[14];    // "05-08 03:52"
     float cmeSpeedKms;
@@ -79,19 +81,6 @@ static uint16_t kpColor(float kp) {
     return COL_RED;
 }
 
-// ── X-ray flux to class string ────────────────────────────────────────────────
-static void fluxToClass(float flux, char *out, int outLen) {
-    if (flux <= 0) { strlcpy(out, "N/A", outLen); return; }
-    const char letters[] = "ABCMX";
-    const float bounds[] = { 1e-8f, 1e-7f, 1e-6f, 1e-5f, 1e-4f };
-    int ci = 0;
-    for (int i = 4; i >= 0; i--) {
-        if (flux >= bounds[i]) { ci = i; break; }
-    }
-    float sub = flux / bounds[ci];
-    snprintf(out, outLen, "%c%.1f", letters[ci], sub);
-}
-
 // ── Keyboard ──────────────────────────────────────────────────────────────────
 static char readKeyboard() {
     char key = 0;
@@ -100,14 +89,38 @@ static char readKeyboard() {
     return key;
 }
 
-// ── UTC date string helper (for DONKI API) ────────────────────────────────────
-static void getDateStrUTC(int daysOffset, char *out, int outLen) {
-    time_t t = time(nullptr) + (time_t)daysOffset * 86400;
-    struct tm *ti = gmtime(&t);
-    snprintf(out, outLen, "%04d-%02d-%02d", ti->tm_year + 1900, ti->tm_mon + 1, ti->tm_mday);
+// ── Worker payload ────────────────────────────────────────────────────────────
+// /solar: kp, hist[8], wind, dens, temp, bz, bt, xray, xclass, flare,
+//         flareTime, cme, cmeTime — 237 bytes as of 2026-10-23.
+static bool fetchFromWorker() {
+    JsonDocument doc;
+    if (!httpJson(QM_BASE "/solar", doc, 12000)) return false;
+
+    float kp = doc["kp"] | 0.0f;
+    if (kp <= 0.0f) return false;          // keep the previous screen, not zeros
+
+    s_sol.kpCurrent    = kp;
+    s_sol.windSpeedKms = doc["wind"] | 0.0f;
+    s_sol.densityPcc   = doc["dens"] | 0.0f;
+    s_sol.bzNT         = doc["bz"]   | 0.0f;
+    s_sol.xrayFlux     = doc["xray"] | 0.0f;
+    s_sol.cmeSpeedKms  = doc["cme"]  | 0.0f;
+
+    strlcpy(s_sol.xrayClass,  doc["xclass"]    | "N/A",  sizeof(s_sol.xrayClass));
+    strlcpy(s_sol.flareClass, doc["flare"]     | "NONE", sizeof(s_sol.flareClass));
+    strlcpy(s_sol.flareTime,  doc["flareTime"] | "---",  sizeof(s_sol.flareTime));
+    strlcpy(s_sol.cmeTime,    doc["cmeTime"]   | "NONE", sizeof(s_sol.cmeTime));
+
+    int n = 0;
+    for (JsonVariant v : doc["hist"].as<JsonArray>()) {
+        if (n >= 8) break;
+        s_sol.kpHistory[n++] = v | 0.0f;
+    }
+    while (n < 8) s_sol.kpHistory[n++] = kp;
+    return true;
 }
 
-// ── Kp history (small JSON, full parse) ──────────────────────────────────────
+// ── Kp forecast — the one remaining direct SWPC read ─────────────────────────
 static bool readKpValue(JsonVariant row, float &kp) {
     JsonVariant v;
     if (row.is<JsonArray>()) {
@@ -117,10 +130,7 @@ static bool readKpValue(JsonVariant row, float &kp) {
         if (v.isNull()) v = row["kp"];
     }
     if (v.isNull()) return false;
-    if (v.is<float>() || v.is<int>()) {
-        kp = v.as<float>();
-        return true;
-    }
+    if (v.is<float>() || v.is<int>()) { kp = v.as<float>(); return true; }
     const char *s = v.as<const char *>();
     if (!s) return false;
     kp = atof(s);
@@ -132,48 +142,15 @@ static const char *readTimeTag(JsonVariant row) {
     return row["time_tag"] | "";
 }
 
-static bool fetchKpHistory() {
-    WiFiClientSecure client; client.setInsecure();
-    HTTPClient http;
-    http.begin(client, "https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json");
-    http.setTimeout(10000);
-    http.addHeader("User-Agent", "T-Deck-AI/1.0");
-    if (http.GET() != 200) { http.end(); return false; }
-    String json = http.getString();
-    http.end();
-
-    JsonDocument doc;
-    if (deserializeJson(doc, json)) return false;
-    JsonArray arr = doc.as<JsonArray>();
-    int total = arr.size();
-    float latest[8];
-    int count = 0;
-    for (int i = total - 1; i >= 0 && count < 8; i--) {
-        float kp = 0.0f;
-        if (readKpValue(arr[i], kp)) latest[count++] = kp;
-    }
-    if (count == 0) return false;
-    s_sol.kpCurrent = latest[0];
-    int histIdx = 0;
-    for (int i = count - 1; i >= 0; i--) s_sol.kpHistory[histIdx++] = latest[i];
-    while (histIdx < 8) s_sol.kpHistory[histIdx++] = s_sol.kpCurrent;
-    return true;
-}
-// ── Kp forecast (small JSON, full parse) ─────────────────────────────────────
 static bool fetchKpForecast() {
-    WiFiClientSecure client; client.setInsecure();
-    HTTPClient http;
-    http.begin(client, "https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json");
-    http.setTimeout(10000);
-    http.addHeader("User-Agent", "T-Deck-AI/1.0");
-    if (http.GET() != 200) { http.end(); return false; }
-    String json = http.getString();
-    http.end();
-
     JsonDocument doc;
-    if (deserializeJson(doc, json)) return false;
+    if (!httpJson("https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json",
+                  doc, 10000)) return false;
+
     JsonArray arr = doc.as<JsonArray>();
     s_sol.forecastCount = 0;
+
+    // Two passes: predicted rows first, then observed ones as filler.
     for (int pass = 0; pass < 2 && s_sol.forecastCount < 7; pass++) {
         for (int i = 0; i < (int)arr.size() && s_sol.forecastCount < 7; i++) {
             JsonVariant row = arr[i];
@@ -193,183 +170,6 @@ static bool fetchKpForecast() {
     }
     return s_sol.forecastCount > 0;
 }
-// ── Solar wind plasma — 1-hour file (small, no streaming needed) ──────────────
-static bool fetchSolarWind1h() {
-    WiFiClientSecure client; client.setInsecure();
-    HTTPClient http;
-    http.begin(client, "https://services.swpc.noaa.gov/products/solar-wind/plasma-2-hour.json");
-    http.setTimeout(10000);
-    http.addHeader("User-Agent", "T-Deck-AI/1.0");
-    if (http.GET() != 200) { http.end(); return false; }
-    String json = http.getString();
-    http.end();
-
-    JsonDocument doc;
-    if (deserializeJson(doc, json)) return false;
-    JsonArray arr = doc.as<JsonArray>();
-    int last = arr.size() - 1;
-    if (last <= 0) return false;
-
-    // Skip null values (data gaps)
-    if (!arr[last][1].isNull()) s_sol.densityPcc   = arr[last][1].as<float>();
-    if (!arr[last][2].isNull()) s_sol.windSpeedKms  = arr[last][2].as<float>();
-    return true;
-}
-
-// ── Solar wind Bz — 1-hour mag file ──────────────────────────────────────────
-static bool fetchSolarBz1h() {
-    WiFiClientSecure client; client.setInsecure();
-    HTTPClient http;
-    http.begin(client, "https://services.swpc.noaa.gov/products/solar-wind/mag-2-hour.json");
-    http.setTimeout(10000);
-    http.addHeader("User-Agent", "T-Deck-AI/1.0");
-    if (http.GET() != 200) { http.end(); return false; }
-    String json = http.getString();
-    http.end();
-
-    JsonDocument doc;
-    if (deserializeJson(doc, json)) return false;
-    JsonArray arr = doc.as<JsonArray>();
-    int last = arr.size() - 1;
-    if (last <= 0) return false;
-
-    if (!arr[last][3].isNull()) s_sol.bzNT = arr[last][3].as<float>();
-    return true;
-}
-
-// ── X-ray flux — stream the response, keep only last 400 bytes (file is huge) ──
-static bool fetchXray1Min() {
-    WiFiClientSecure client; client.setInsecure();
-    HTTPClient http;
-    http.begin(client, "https://services.swpc.noaa.gov/json/goes/primary/xrays-6-hour.json");
-    http.setTimeout(12000);
-    http.addHeader("User-Agent", "T-Deck-AI/1.0");
-    if (http.GET() != 200) { http.end(); return false; }
-
-    // Read entire stream into a 400-byte rolling tail buffer — avoids OOM on
-    // the large (400KB+) 1-minute GOES file while still finding the last entry.
-    static const int TAIL_MAX = 400;
-    char     tail[TAIL_MAX + 1];
-    int      tailLen = 0;
-    uint8_t  chunk[128];
-    WiFiClient *stream = http.getStreamPtr();
-    uint32_t deadline  = millis() + 12000;
-
-    while (millis() < deadline) {
-        int avail = stream->available();
-        if (avail <= 0) { if (!http.connected()) break; delay(5); continue; }
-        int n = stream->readBytes(chunk, min(avail, (int)sizeof(chunk)));
-        if (n <= 0) break;
-        if (tailLen + n <= TAIL_MAX) {
-            memcpy(tail + tailLen, chunk, n);
-            tailLen += n;
-        } else {
-            int keep = TAIL_MAX - n;
-            if (keep < 0) keep = 0;
-            if (keep > 0) memmove(tail, tail + tailLen - keep, keep);
-            int copyFrom = (n > TAIL_MAX) ? n - TAIL_MAX : 0;
-            int copyLen  = min(n, TAIL_MAX);
-            memcpy(tail + keep, chunk + copyFrom, copyLen);
-            tailLen = keep + copyLen;
-        }
-    }
-    http.end();
-    tail[tailLen] = '\0';
-
-    // Find the last "0.1-0.8nm" in the tail, then scan backward for "flux":
-    char *pos = nullptr;
-    for (char *p = tail; (p = strstr(p, "0.1-0.8nm")) != nullptr; p++) pos = p;
-    if (!pos) return false;
-    for (char *fp = pos; fp > tail; fp--) {
-        if (strncmp(fp, "\"flux\"", 6) == 0) {
-            char *colon = strchr(fp, ':');
-            if (!colon) continue;
-            s_sol.xrayFlux = atof(colon + 1);
-            fluxToClass(s_sol.xrayFlux, s_sol.xrayClass, sizeof(s_sol.xrayClass));
-            return true;
-        }
-    }
-    return false;
-}
-
-// ── NASA DONKI — solar flares (last 3 days) ───────────────────────────────────
-static bool fetchSolarFlare() {
-    WiFiClientSecure client; client.setInsecure();
-    HTTPClient http;
-    http.begin(client, "https://services.swpc.noaa.gov/json/goes/primary/xray-flares-latest.json");
-    http.setTimeout(8000);
-    http.addHeader("User-Agent", "T-Deck-AI/1.0");
-    if (http.GET() != 200) { http.end(); return false; }
-    String json = http.getString();
-    http.end();
-
-    JsonDocument doc;
-    if (deserializeJson(doc, json)) return false;
-    JsonArray arr = doc.as<JsonArray>();
-    if (arr.size() == 0) {
-        strlcpy(s_sol.flareClass, "NONE", sizeof(s_sol.flareClass));
-        strlcpy(s_sol.flareTime, "---", sizeof(s_sol.flareTime));
-        return true;
-    }
-
-    JsonObject flare = arr[0];
-    const char *cls = flare["max_class"] | flare["current_class"] | "---";
-    const char *peak = flare["max_time"] | flare["time_tag"] | "";
-    strlcpy(s_sol.flareClass, cls, sizeof(s_sol.flareClass));
-    if (strlen(peak) >= 16) snprintf(s_sol.flareTime, sizeof(s_sol.flareTime), "%.5s %.5s", peak + 5, peak + 11);
-    else strlcpy(s_sol.flareTime, "---", sizeof(s_sol.flareTime));
-    return true;
-}
-// ── NASA DONKI — CME (last 4 days) ───────────────────────────────────────────
-static bool fetchSolarCME() {
-    char startDate[12], endDate[12];
-    getDateStrUTC(-4, startDate, sizeof(startDate));
-    getDateStrUTC(0,  endDate,   sizeof(endDate));
-
-    char url[200];
-    snprintf(url, sizeof(url),
-        "https://api.nasa.gov/DONKI/CME?startDate=%s&endDate=%s&api_key=%s",
-        startDate, endDate, donkiApiKey().c_str());
-
-    WiFiClientSecure client; client.setInsecure();
-    HTTPClient http;
-    http.begin(client, url);
-    http.setTimeout(12000);
-    http.addHeader("User-Agent", "T-Deck-AI/1.0");
-    if (http.GET() != 200) { http.end(); return false; }
-    String json = http.getString();
-    http.end();
-
-    JsonDocument doc;
-    if (deserializeJson(doc, json)) return false;
-    JsonArray arr = doc.as<JsonArray>();
-
-    if (arr.size() == 0) {
-        s_sol.cmeSpeedKms = 0;
-        strlcpy(s_sol.cmeTime, "NONE", sizeof(s_sol.cmeTime));
-        return true;
-    }
-
-    int last = arr.size() - 1;
-    const char *startTime = arr[last]["startTime"] | "";
-
-    // Try to get speed from cmeAnalyses
-    s_sol.cmeSpeedKms = 0;
-    JsonArray analyses = arr[last]["cmeAnalyses"].as<JsonArray>();
-    for (JsonVariant a : analyses) {
-        if (!a["speed"].isNull()) {
-            s_sol.cmeSpeedKms = a["speed"].as<float>();
-            break;
-        }
-    }
-
-    if (strlen(startTime) >= 16) {
-        snprintf(s_sol.cmeTime, sizeof(s_sol.cmeTime), "%.5s %.5s", startTime + 5, startTime + 11);
-    } else {
-        strlcpy(s_sol.cmeTime, "NONE", sizeof(s_sol.cmeTime));
-    }
-    return true;
-}
 
 // ── Fetch all data ─────────────────────────────────────────────────────────────
 static void fetchAllData() {
@@ -384,54 +184,47 @@ static void fetchAllData() {
 
     if (!WiFi.isConnected()) return;
 
-    bool kpOk = fetchKpHistory();
-    fetchKpForecast();
-    fetchSolarWind1h();
-    fetchSolarBz1h();
-    fetchXray1Min();
-    fetchSolarFlare();
-    fetchSolarCME();
+    if (!fetchFromWorker()) return;        // no worker, no screen — the cache covers this
+    fetchKpForecast();                     // optional; forecast strip degrades alone
 
-    if (kpOk) {
-        s_sol.valid     = true;
-        s_sol.fromCache = false;
+    s_sol.valid     = true;
+    s_sol.fromCache = false;
 
-        struct tm ti;
-        if (getLocalTime(&ti, 0)) {
-            int h = ti.tm_hour;
-            const char *ap = h >= 12 ? "PM" : "AM";
-            if (h > 12) h -= 12;
-            else if (h == 0) h = 12;
-            snprintf(s_sol.syncStr, sizeof(s_sol.syncStr), "%d:%02d %s", h, ti.tm_min, ap);
-        } else {
-            strlcpy(s_sol.syncStr, "--:--", sizeof(s_sol.syncStr));
-        }
+    struct tm ti;
+    if (getLocalTime(&ti, 0)) {
+        int h = ti.tm_hour;
+        const char *ap = h >= 12 ? "PM" : "AM";
+        if (h > 12) h -= 12;
+        else if (h == 0) h = 12;
+        snprintf(s_sol.syncStr, sizeof(s_sol.syncStr), "%d:%02d %s", h, ti.tm_min, ap);
+    } else {
+        strlcpy(s_sol.syncStr, "--:--", sizeof(s_sol.syncStr));
+    }
 
-        nvsPutInt("sol_cached_at", (int)time(nullptr));
-        nvsPutInt("sol_kp_cur",    (int)(s_sol.kpCurrent    * 100));
-        nvsPutInt("sol_bz",        (int)(s_sol.bzNT         * 100));
-        nvsPutInt("sol_wind",      (int)s_sol.windSpeedKms);
-        nvsPutInt("sol_dens",      (int)(s_sol.densityPcc   * 100));
-        nvsPutString("sol_xray",   s_sol.xrayClass);
-        nvsPutString("sol_flare",  s_sol.flareClass);
-        nvsPutString("sol_flaret", s_sol.flareTime);
-        nvsPutInt("sol_cme_spd",   (int)s_sol.cmeSpeedKms);
-        nvsPutString("sol_cmet",   s_sol.cmeTime);
-        nvsPutInt("sol_hist_n", 8);
-        for (int i = 0; i < 8; i++) {
-            char key[16];
-            snprintf(key, sizeof(key), "sol_hist%d", i);
-            nvsPutInt(key, (int)(s_sol.kpHistory[i] * 100));
-        }
-        nvsPutInt("sol_fc_n", s_sol.forecastCount);
-        for (int i = 0; i < 7; i++) {
-            char keyKp[16];
-            char keyTime[16];
-            snprintf(keyKp, sizeof(keyKp), "sol_fc%d", i);
-            snprintf(keyTime, sizeof(keyTime), "sol_fct%d", i);
-            nvsPutInt(keyKp, (int)(s_sol.forecast[i].kp * 100));
-            nvsPutString(keyTime, s_sol.forecast[i].hhmm);
-        }
+    nvsPutInt("sol_cached_at", (int)time(nullptr));
+    nvsPutInt("sol_kp_cur",    (int)(s_sol.kpCurrent    * 100));
+    nvsPutInt("sol_bz",        (int)(s_sol.bzNT         * 100));
+    nvsPutInt("sol_wind",      (int)s_sol.windSpeedKms);
+    nvsPutInt("sol_dens",      (int)(s_sol.densityPcc   * 100));
+    nvsPutString("sol_xray",   s_sol.xrayClass);
+    nvsPutString("sol_flare",  s_sol.flareClass);
+    nvsPutString("sol_flaret", s_sol.flareTime);
+    nvsPutInt("sol_cme_spd",   (int)s_sol.cmeSpeedKms);
+    nvsPutString("sol_cmet",   s_sol.cmeTime);
+    nvsPutInt("sol_hist_n", 8);
+    for (int i = 0; i < 8; i++) {
+        char key[16];
+        snprintf(key, sizeof(key), "sol_hist%d", i);
+        nvsPutInt(key, (int)(s_sol.kpHistory[i] * 100));
+    }
+    nvsPutInt("sol_fc_n", s_sol.forecastCount);
+    for (int i = 0; i < 7; i++) {
+        char keyKp[16];
+        char keyTime[16];
+        snprintf(keyKp, sizeof(keyKp), "sol_fc%d", i);
+        snprintf(keyTime, sizeof(keyTime), "sol_fct%d", i);
+        nvsPutInt(keyKp, (int)(s_sol.forecast[i].kp * 100));
+        nvsPutString(keyTime, s_sol.forecast[i].hhmm);
     }
 }
 
@@ -443,6 +236,8 @@ static bool loadFromCache() {
     if (now > 1000000 && (now - cachedAt) > CACHE_TTL_SEC) return false;
 
     s_sol.kpCurrent    = nvsGetInt("sol_kp_cur", 0) / 100.0f;
+    if (s_sol.kpCurrent <= 0.0f) return false;
+
     s_sol.bzNT         = nvsGetInt("sol_bz",     0) / 100.0f;
     s_sol.windSpeedKms = nvsGetInt("sol_wind",   0);
     s_sol.densityPcc   = nvsGetInt("sol_dens",   0) / 100.0f;
@@ -462,14 +257,15 @@ static bool loadFromCache() {
     strlcpy(s_sol.cmeTime, cmeT.isEmpty() ? "NONE" : cmeT.c_str(), sizeof(s_sol.cmeTime));
 
     int histN = nvsGetInt("sol_hist_n", 0);
-    int fcN = nvsGetInt("sol_fc_n", 0);
-    if (histN < 8 || fcN <= 0) return false;
+    if (histN < 8) return false;
     for (int i = 0; i < 8; i++) {
         char key[16];
         snprintf(key, sizeof(key), "sol_hist%d", i);
         s_sol.kpHistory[i] = histN > i ? nvsGetInt(key, 0) / 100.0f : s_sol.kpCurrent;
     }
 
+    // The forecast strip is optional — a cache without it is still useful.
+    int fcN = nvsGetInt("sol_fc_n", 0);
     if (fcN < 0) fcN = 0;
     if (fcN > 7) fcN = 7;
     s_sol.forecastCount = fcN;
@@ -480,7 +276,8 @@ static bool loadFromCache() {
         snprintf(keyTime, sizeof(keyTime), "sol_fct%d", i);
         s_sol.forecast[i].kp = i < fcN ? nvsGetInt(keyKp, 0) / 100.0f : 0.0f;
         String hhmm = nvsGetString(keyTime);
-        strlcpy(s_sol.forecast[i].hhmm, (i < fcN && !hhmm.isEmpty()) ? hhmm.c_str() : "--:--", sizeof(s_sol.forecast[i].hhmm));
+        strlcpy(s_sol.forecast[i].hhmm, (i < fcN && !hhmm.isEmpty()) ? hhmm.c_str() : "--:--",
+                sizeof(s_sol.forecast[i].hhmm));
     }
 
     s_sol.valid     = true;
@@ -634,34 +431,40 @@ static void drawSolarScreen() {
     s_tft->drawString("48H FORECAST", 4, foreY);
 
     int count = min(s_sol.forecastCount, 7);
-    int cellW = SCREEN_W / max(count, 1);
-    int timeY = foreY + 10;
-    int fBarY = timeY + 10;
-    int fBarH = barMaxH;
-    int forecastLabelY = fBarY + fBarH + 2;
-    for (int i = 0; i < count; i++) {
-        int x = i * cellW;
-        int cx = x + cellW / 2;
-        float kp = s_sol.forecast[i].kp;
-        uint16_t fc = kpColor(kp);
-        int barH = (int)(kp / 9.0f * fBarH);
-        if (barH < 2) barH = 2;
+    if (count > 0) {
+        int cellW = SCREEN_W / count;
+        int timeY = foreY + 10;
+        int fBarY = timeY + 10;
+        int fBarH = barMaxH;
+        int forecastLabelY = fBarY + fBarH + 2;
+        for (int i = 0; i < count; i++) {
+            int x = i * cellW;
+            int cx = x + cellW / 2;
+            float kp = s_sol.forecast[i].kp;
+            uint16_t fc = kpColor(kp);
+            int barH = (int)(kp / 9.0f * fBarH);
+            if (barH < 2) barH = 2;
 
-        s_tft->drawRect(x + 4, fBarY, cellW - 8, fBarH, g_themeColor);
-        s_tft->fillRect(x + 5, fBarY + fBarH - barH, cellW - 10, barH - 1, fc);
+            s_tft->drawRect(x + 4, fBarY, cellW - 8, fBarH, g_themeColor);
+            s_tft->fillRect(x + 5, fBarY + fBarH - barH, cellW - 10, barH - 1, fc);
 
-        s_tft->setTextFont(FONT_SMALL);
-        s_tft->setTextColor(g_themeColor, COL_BG);
-        int tw = s_tft->textWidth(s_sol.forecast[i].hhmm);
-        s_tft->drawString(s_sol.forecast[i].hhmm, cx - tw / 2, timeY);
+            s_tft->setTextFont(FONT_SMALL);
+            s_tft->setTextColor(g_themeColor, COL_BG);
+            int tw = s_tft->textWidth(s_sol.forecast[i].hhmm);
+            s_tft->drawString(s_sol.forecast[i].hhmm, cx - tw / 2, timeY);
 
-        char kpN[5]; snprintf(kpN, sizeof(kpN), "%.1f", kp);
-        s_tft->setTextColor(fc, COL_BG);
-        int kw = s_tft->textWidth(kpN);
-        s_tft->drawString(kpN, cx - kw / 2, forecastLabelY);
+            char kpN[5]; snprintf(kpN, sizeof(kpN), "%.1f", kp);
+            s_tft->setTextColor(fc, COL_BG);
+            int kw = s_tft->textWidth(kpN);
+            s_tft->drawString(kpN, cx - kw / 2, forecastLabelY);
 
-        if (i < count - 1) s_tft->drawFastVLine(x + cellW - 1, foreY + 1, bottomY - foreY - 2, g_themeColor);
+            if (i < count - 1) s_tft->drawFastVLine(x + cellW - 1, foreY + 1, bottomY - foreY - 2, g_themeColor);
+        }
+    } else {
+        s_tft->setTextColor(COL_GREY_MID, COL_BG);
+        s_tft->drawString("forecast unavailable", 4, foreY + 12);
     }
+
     // ── Alert / hint bar — fixed at screen bottom ─────────────────────────────
     int g = kpGLevel(s_sol.kpCurrent);
     bool bzAlert = s_sol.bzNT < -5.0f && s_sol.bzNT != 0.0f;
@@ -695,16 +498,16 @@ static void drawSolarScreen() {
 // Populates NVS cache so solarInit() always finds data ready.
 void solarWarmCache() {
     if (!WiFi.isConnected()) return;
-    fetchAllData();          // fetches from NOAA/SWPC, saves to NVS
+    fetchAllData();
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
 void solarInit(TFT_eSPI &tft) {
     s_tft = &tft;
     memset(&s_sol, 0, sizeof(s_sol));
-    strlcpy(s_sol.xrayClass,  "N/A", sizeof(s_sol.xrayClass));
+    strlcpy(s_sol.xrayClass,  "N/A",  sizeof(s_sol.xrayClass));
     strlcpy(s_sol.flareClass, "NONE", sizeof(s_sol.flareClass));
-    strlcpy(s_sol.flareTime,  "---", sizeof(s_sol.flareTime));
+    strlcpy(s_sol.flareTime,  "---",  sizeof(s_sol.flareTime));
     strlcpy(s_sol.cmeTime,    "NONE", sizeof(s_sol.cmeTime));
 
     if (loadFromCache()) {

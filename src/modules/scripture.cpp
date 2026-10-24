@@ -16,7 +16,7 @@
 #define SCRIP_ROW_H      16   // row height in book-select list
 #define SCRIP_WRAP_W     (SCREEN_W - 8)
 #define PAGE_HIST_MAX    200
-#define IDX_MAX          200
+#define IDX_MAX          280  // Book of Mormon alone has 239 chapters
 #define IDX_VISIBLE      10   // rows in chapter-index browser (FONT_MED)
 #define IDX_ROW_H        18   // row height in chapter-index browser
 #define READ_VISIBLE     10   // rows in reader (FONT_MED)
@@ -251,7 +251,7 @@ static void closeFile() {
 
 // ─── Chapter index ────────────────────────────────────────────────────────────
 
-#define IDX_VERSION  0x06   // bump to auto-invalidate cached .idx files
+#define IDX_VERSION  0x07   // bump to auto-invalidate cached .idx files
 
 static void mkIdxPath(const char *bookPath, char *out, int outLen) {
     strlcpy(out, bookPath, outLen);
@@ -264,16 +264,89 @@ static void mkIdxPath(const char *bookPath, char *out, int outLen) {
 
 // Case/punctuation-insensitive title comparison for dedup.
 // "The First Book of Moses: Called Genesis" == "THE FIRST BOOK OF MOSES CALLED GENESIS"
+// Digits are significant: without them every "1 Nephi Chapter 1..239" collapses
+// into one entry, which is exactly what happened before 2026-10-23.
 static bool titleNormEq(const char *a, const char *b) {
     while (*a || *b) {
-        while (*a && !isalpha((uint8_t)*a)) a++;
-        while (*b && !isalpha((uint8_t)*b)) b++;
+        while (*a && !isalnum((uint8_t)*a)) a++;
+        while (*b && !isalnum((uint8_t)*b)) b++;
         if (!*a && !*b) return true;
         if (!*a || !*b) return false;
         if (tolower((uint8_t)*a) != tolower((uint8_t)*b)) return false;
         a++; b++;
     }
     return true;
+}
+
+// ── Heading shape tests (2026-10-23) ─────────────────────────────────────────
+// The blank-line sandwich alone missed two common layouts: headings that start
+// with a number ("1 Nephi Chapter 1") and headings that sit directly above
+// prose with no trailing blank ("SURA LXXIV"). A keyword or an inline
+// "Chapter N" is structure the file is stating outright, so those are indexed
+// without waiting for a blank line. Front matter is skipped by name.
+static bool excludedHeading(const String &lower) {
+    static const char *BAD[] = {
+        "endeth", "end of", "here end", "contents", "table of",
+        "title:", "language:", "credits:", "translator:", "author of",
+        "produced by", "html version", "start of the project",
+        "end of the project", "transcriber",
+    };
+    for (const char *b : BAD) if (lower.indexOf(b) >= 0) return true;
+    return false;
+}
+
+static bool keywordHeading(const String &lower) {
+    static const char *KW[] = {
+        "chapter", "book", "part", "sura", "surah", "canto",
+        "act", "scene", "psalm", "section", "hymn", "appendix",
+    };
+    for (const char *k : KW) {
+        size_t l = strlen(k);
+        if (!lower.startsWith(k)) continue;
+        if (lower.length() == l) return true;
+        char c = lower[l];
+        if (c == ' ' || c == '.' || c == ':' || isdigit((uint8_t)c)) return true;
+    }
+    return false;
+}
+
+// "1 Nephi Chapter 12", "Book of Alma Chapter 3" — the chapter number can sit
+// anywhere on the line, because some editions prefix the book name.
+static bool inlineChapterNumber(const String &lower) {
+    int p = lower.indexOf("chapter ");
+    if (p < 0) return false;
+    size_t i = (size_t)p + 8;
+    while (i < lower.length() && lower[i] == ' ') i++;
+    if (i >= lower.length()) return false;
+    char c = lower[i];
+    return isdigit((uint8_t)c) || c == 'i' || c == 'v' || c == 'x' ||
+           c == 'l' || c == 'c' || c == 'd' || c == 'm';
+}
+
+// A bare "12." or "IX." line: chapter markers in books that put the number on
+// its own line (Legge's Tao uses "12." followed by the chapter's first verse).
+static bool numericMarker(const String &tr) {
+    int i = 0;
+    while (i < (int)tr.length() && isdigit((uint8_t)tr[i])) i++;
+    if (i == 0 || i > 3) return false;
+    while (i < (int)tr.length() && tr[i] == ' ') i++;
+    return (i == (int)tr.length()) || (i == (int)tr.length() - 1 && tr[i] == '.');
+}
+
+static void addIndexEntry(uint32_t offset, const char *title) {
+    for (int d = 0; d < s_idxCount; d++) {
+        if (titleNormEq(s_idx[d].title, title)) {
+            // Same title seen before (TOC copy) — update to the later offset
+            s_idx[d].offset = offset;
+            strlcpy(s_idx[d].title, title, sizeof(IdxEntry::title));
+            return;
+        }
+    }
+    if (s_idxCount < IDX_MAX) {
+        s_idx[s_idxCount].offset = offset;
+        strlcpy(s_idx[s_idxCount].title, title, sizeof(IdxEntry::title));
+        s_idxCount++;
+    }
 }
 
 // Scan bookPath and record lines that are structural section headers.
@@ -317,19 +390,7 @@ static void buildBookIndex(const char *bookPath, const char *idxPath) {
             blanksBefore++;
             if (pendingOk) {
                 // Blank after candidate → sandwich confirmed
-                int existIdx = -1;
-                for (int d = 0; d < s_idxCount; d++) {
-                    if (titleNormEq(s_idx[d].title, pendingTitle)) { existIdx = d; break; }
-                }
-                if (existIdx >= 0) {
-                    // Same title seen before (TOC copy) — update to actual content offset
-                    s_idx[existIdx].offset = pendingOffset;
-                    strlcpy(s_idx[existIdx].title, pendingTitle, sizeof(IdxEntry::title));
-                } else if (s_idxCount < IDX_MAX) {
-                    s_idx[s_idxCount].offset = pendingOffset;
-                    strlcpy(s_idx[s_idxCount].title, pendingTitle, sizeof(IdxEntry::title));
-                    s_idxCount++;
-                }
+                addIndexEntry(pendingOffset, pendingTitle);
                 pendingOk = false;
             }
             continue;
@@ -338,17 +399,31 @@ static void buildBookIndex(const char *bookPath, const char *idxPath) {
         // Non-blank line: reject any unconfirmed pending candidate
         pendingOk = false;
 
-        // Candidate criteria: blank before, alpha-start, 4-70 chars,
-        // no dot-leaders, doesn't end with a bare digit (TOC page refs).
-        // Single-word names (Ezra, Hosea, Joel…) are allowed.
+        String lower = tr;
+        lower.toLowerCase();
+
         if (blanksBefore >= 1 &&
-            tr.length() >= 4 && tr.length() <= 70 &&
-            isalpha((uint8_t)tr[0]) &&
-            tr.indexOf("....") < 0 &&
-            !isdigit((uint8_t)tr[tr.length() - 1])) {
-            pendingOk     = true;
-            pendingOffset = lineStart;
-            strlcpy(pendingTitle, tr.c_str(), sizeof(pendingTitle));
+            tr.length() >= 3 && tr.length() <= 70 &&
+            !excludedHeading(lower)) {
+
+            // Explicit structure — "CHAPTER IV", "1 Nephi Chapter 1",
+            // "SURA LXXIV". Indexed immediately: the body heading can sit
+            // straight above prose, and a TOC copy is replaced later because
+            // dedup keeps the last occurrence of a title.
+            if (keywordHeading(lower) || inlineChapterNumber(lower)) {
+                addIndexEntry(lineStart, tr.c_str());
+            } else if (tr.indexOf("....") < 0) {
+                // Otherwise wait for a blank line after it (sandwich), which
+                // rejects TOC runs and verse paragraphs.
+                bool numeric    = numericMarker(tr);
+                bool alphaStart = isalpha((uint8_t)tr[0]) &&
+                                  !isdigit((uint8_t)tr[tr.length() - 1]);
+                if (numeric || alphaStart) {
+                    pendingOk     = true;
+                    pendingOffset = lineStart;
+                    strlcpy(pendingTitle, tr.c_str(), sizeof(pendingTitle));
+                }
+            }
         }
 
         blanksBefore = 0;

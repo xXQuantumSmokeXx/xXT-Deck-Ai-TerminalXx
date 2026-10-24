@@ -19,10 +19,10 @@
 #include "modules/sysinfo.h"
 #include "modules/noaa.h"
 #include "modules/world.h"
-#include "modules/waze.h"
 #include "modules/news.h"
-#include "modules/shtf.h"
 #include "modules/sigil.h"
+#include "modules/aews.h"
+#include "modules/outages.h"
 
 // ── Touch ─────────────────────────────────────────────────────────────────────
 #define TOUCH_INT_PIN   16
@@ -68,7 +68,7 @@ static void initBrightness() {
 }
 
 // ── Screen state ──────────────────────────────────────────────────────────────
-enum Screen { SCR_HOME, SCR_CHAT, SCR_WEATHER, SCR_SOLAR, SCR_BTC, SCR_SYSINFO, SCR_ALERTS, SCR_WORLD, SCR_HAZARD, SCR_ORACLE, SCR_ROAD, SCR_SHTF, SCR_STUB };
+enum Screen { SCR_HOME, SCR_CHAT, SCR_WEATHER, SCR_SOLAR, SCR_BTC, SCR_SYSINFO, SCR_ALERTS, SCR_WORLD, SCR_AEWS, SCR_ORACLE, SCR_ROAD, SCR_OUTAGES, SCR_STUB };
 
 static Screen    s_screen = SCR_HOME;
 static TFT_eSPI  tft;
@@ -181,9 +181,6 @@ static void handleScreenTrackball() {
     } else if (s_screen == SCR_WORLD) {
         if (up)   worldTrackballUp();
         if (down) worldTrackballDown();
-    } else if (s_screen == SCR_HAZARD) {
-        if (up)   wazeTrackballUp();
-        if (down) wazeTrackballDown();
     } else if (s_screen == SCR_ORACLE) {
         if (up)    sigilTrackballUp();
         if (down)  sigilTrackballDown();
@@ -192,9 +189,6 @@ static void handleScreenTrackball() {
     } else if (s_screen == SCR_ROAD) {
         if (up)   newsTrackballUp();
         if (down) newsTrackballDown();
-    } else if (s_screen == SCR_SHTF) {
-        if (up)   shtfTrackballUp();
-        if (down) shtfTrackballDown();
     }
 }
 
@@ -439,9 +433,9 @@ static void launchTile(TileID id) {
             drainTrackball(_u, _d, _l, _r);
             break;
         }
-        case TILE_HAZARD: {
-            s_screen = SCR_HAZARD;
-            wazeHazardInit(tft);
+        case TILE_OUTAGES: {
+            s_screen = SCR_OUTAGES;
+            outagesInit(tft);
             int _u, _d, _l, _r;
             drainTrackball(_u, _d, _l, _r);
             break;
@@ -460,9 +454,9 @@ static void launchTile(TileID id) {
             drainTrackball(_u, _d, _l, _r);
             break;
         }
-        case TILE_SHTF: {
-            s_screen = SCR_SHTF;
-            shtfInit(tft);
+        case TILE_AEWS: {
+            s_screen = SCR_AEWS;
+            aewsInit(tft);
             int _u, _d, _l, _r;
             drainTrackball(_u, _d, _l, _r);
             break;
@@ -500,8 +494,9 @@ static void loadPortalUrlFromSD() {
     if (url.length() > 0) nvsPutString("server_url", url);
 }
 
-// ── Splash screen ─────────────────────────────────────────────────────────────
-// SD donki.txt boot load
+// ── SD one-line key files ────────────────────────────────────────────────────
+// The TomTom, Waze, HealthMap, EIA and power-outage keys went away with the
+// SHTF and TRAFFIC screens; what remains is the portal token and Commander code.
 static void loadSdKey(const char *filename, const char *nvsKey) {
     if (!SD.begin(BOARD_SDCARD_CS)) return;
     if (!SD.exists(filename)) { SD.end(); return; }
@@ -518,38 +513,7 @@ static void loadSdKey(const char *filename, const char *nvsKey) {
     if (key.length() > 0) nvsPutString(nvsKey, key);
 }
 
-static void loadWazeKeyFromSD() {
-    if (!SD.begin(BOARD_SDCARD_CS)) return;
-    if (!SD.exists("/waze.txt")) { SD.end(); return; }
-    File f = SD.open("/waze.txt", FILE_READ);
-    if (!f) { SD.end(); return; }
-    String key = f.readStringUntil('\n');
-    key.trim();
-    if (key.length() >= 3 &&
-        (uint8_t)key[0] == 0xEF &&
-        (uint8_t)key[1] == 0xBB &&
-        (uint8_t)key[2] == 0xBF) key = key.substring(3);
-    f.close();
-    if (key.length() > 0) nvsPutString("waze_key", key);
-    SD.end();
-}
-static void loadDonkiKeyFromSD() {
-    if (!SD.begin(BOARD_SDCARD_CS)) return;
-    if (!SD.exists("/donki.txt")) { SD.end(); return; }
-    File f = SD.open("/donki.txt", FILE_READ);
-    if (!f) { SD.end(); return; }
-    String key = f.readStringUntil('\n');
-    key.trim();
-    if (key.length() >= 3 &&
-        (uint8_t)key[0] == 0xEF &&
-        (uint8_t)key[1] == 0xBB &&
-        (uint8_t)key[2] == 0xBF) key = key.substring(3);
-    f.close();
-    if (key.length() > 0) {
-        nvsPutString("donki_key", key);
-    }
-    SD.end();
-}
+// ── Splash screen ─────────────────────────────────────────────────────────────
 // Quantum Smoke sigil — pointy-top hexagon + inner diamond + crosshairs + smoke wisps
 static void drawSplashLogo(TFT_eSPI &t, int cx, int cy) {
     const uint16_t C = g_themeColor;
@@ -658,8 +622,11 @@ static void bootWifi() {
         while (time(nullptr) < 1000000 && millis() - t0 < 4000) delay(100);
         struct tm ti;
         if (getLocalTime(&ti, 0)) {
-            char tbuf[24];
-            snprintf(tbuf, sizeof(tbuf), "Time: %02d:%02d ET", ti.tm_hour, ti.tm_min);
+            char tbuf[28];
+            int h = ti.tm_hour;
+            const char *ap = h >= 12 ? "PM" : "AM";
+            if (h > 12) h -= 12; else if (h == 0) h = 12;
+            snprintf(tbuf, sizeof(tbuf), "Time: %d:%02d %s ET", h, ti.tm_min, ap);
             tft.setTextColor(g_themeColor, COL_BG);
             tft.drawString(tbuf, 4, 56);
         }
@@ -676,7 +643,7 @@ static void bootWifi() {
 // ── Boot sync ─────────────────────────────────────────────────────────────────
 // Fetches module data before the home screen appears.  A single status line
 // shows which service is being fetched.  The hardware watchdog is disabled
-// during sync (Solar alone calls 7+ NOAA endpoints) and restored afterwards.
+// during sync and stays off for the run — see the note after the loop.
 
 #include <esp_task_wdt.h>
 
@@ -689,12 +656,13 @@ static void bootSyncAll() {
     while (time(nullptr) < 1000000 && millis() - nt0 < 10000) delay(200);
     if (time(nullptr) < 1000000) return;  // NTP failed — skip sync, fetch on entry
 
-    // Crypto, Weather, Solar, Quakes — the rest (News, SHTF, Traffic)
-    // sync on-entry where failures are isolated to one screen.
+    // Worker-backed screens are one small request each, so warming them all at
+    // boot costs a few seconds. News stays on-entry: it has an NVS cache and a
+    // longer TTL than the rest.
     static const char *LABELS[] = {
-        "Crypto", "Weather", "Solar", "Quakes"
+        "Crypto", "Weather", "Solar", "Quakes", "AEWS", "Outages"
     };
-    const int COUNT = 4;
+    const int COUNT = 6;
 
     // Disable task watchdog during sync — individual HTTP calls can run 10-90 s.
     esp_task_wdt_deinit();
@@ -709,10 +677,12 @@ static void bootSyncAll() {
         tft.drawString(buf, 4, SCREEN_H - 18);
 
         switch (i) {
-            case 0: btcWarmCache();      break;
-            case 1: weatherWarmCache();   break;
-            case 2: solarWarmCache();     break;
-            case 3: worldWarmCache();     break;
+            case 0: btcWarmCache();     break;
+            case 1: weatherWarmCache(); break;
+            case 2: solarWarmCache();   break;
+            case 3: worldWarmCache();   break;
+            case 4: aewsWarmCache();    break;
+            case 5: outagesWarmCache(); break;
         }
     }
 
@@ -757,17 +727,16 @@ void setup() {
 
     showSplash();
     loadPortalUrlFromSD();
-    loadDonkiKeyFromSD();
-    loadWazeKeyFromSD();
-    loadSdKey("/tomtom.txt",       "tomtom_key");
-    loadSdKey("/healthmap.txt",   "hmap_key");
-    loadSdKey("/eia.txt",         "eia_key");
-    loadSdKey("/poweroutage.txt", "poutage_key");
-    // Credentials too large or too error-prone to type on the keyboard (2026-10-18). A file
+    // Credentials too large or error-prone to type on the keyboard (2026-10-18). A file
     // wins over NVS when it exists, so dropping one on the card is the whole setup; settoken
     // and setcode remain for changing or clearing them from the device.
     loadSdKey("/portal_token.txt",   "portal_token");
     loadSdKey("/commander_code.txt", "commander_code");
+    // The two portal assistants, one line each: assist1.txt = slot 1 (Six),
+    // assist2.txt = slot 2 (Nova). A file wins over NVS, so the card is the
+    // whole setup and setassist1/setassist2 are only a recovery path.
+    loadSdKey("/assist1.txt", "assist1");
+    loadSdKey("/assist2.txt", "assist2");
     bootWifi();
     personaMgrInit();
 
@@ -865,9 +834,9 @@ void loop() {
         handleScreenTrackball();
         if (!worldLoop(tft)) returnHome();
 
-    } else if (s_screen == SCR_HAZARD) {
+    } else if (s_screen == SCR_OUTAGES) {
         handleScreenTrackball();
-        if (!wazeHazardLoop(tft)) returnHome();
+        if (!outagesLoop(tft)) returnHome();
 
     } else if (s_screen == SCR_ORACLE) {
         handleScreenTrackball();
@@ -878,9 +847,9 @@ void loop() {
         handleScreenTrackball();
         if (!newsLoop(tft)) returnHome();
 
-    } else if (s_screen == SCR_SHTF) {
+    } else if (s_screen == SCR_AEWS) {
         handleScreenTrackball();
-        if (!shtfLoop(tft)) returnHome();
+        if (!aewsLoop(tft)) returnHome();
 
     } else {
         handleScreenTrackball();

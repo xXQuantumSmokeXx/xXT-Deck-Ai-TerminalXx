@@ -10,8 +10,8 @@ enum TileID {
     TILE_BTC     = 4,
     TILE_FIRE    = 5,
     TILE_WORLD   = 6,
-    TILE_SHTF    = 7,   // SHTF monitor: grid + outbreak + threat index
-    TILE_HAZARD  = 8,   // TomTom: traffic incidents
+    TILE_AEWS    = 7,   // Apocalypse Early Warning System (jet anomalies)
+    TILE_OUTAGES = 8,   // US power outages, national + local 24 h
     TILE_ORACLE  = 9,   // Oracle divination (implementation pending)
     TILE_ROAD    = 10,  // News: RSS feed aggregator
     TILE_SYSINFO = 11,  // System info
