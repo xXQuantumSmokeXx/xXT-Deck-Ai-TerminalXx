@@ -57,9 +57,9 @@ A tactical multi-function terminal for the LILYGO T-Deck ESP32-S3, consolidating
 
 **Option 1 — M5Launcher (SD card, no USB required):**
 
-1. Grab `T-Deck-Ai-Terminal-v1.2.1.bin` from the [latest release](https://github.com/xXQuantumSmokeXx/xXT-Deck-Ai-TerminalXx/releases/latest) and copy it to your SD card root.
+1. Grab `T-Deck-Ai-Terminal-v1.2.2.bin` from the [latest release](https://github.com/xXQuantumSmokeXx/xXT-Deck-Ai-TerminalXx/releases/latest) and copy it to your SD card root.
 2. Boot into M5Launcher on the T-Deck.
-3. Select `T-Deck-Ai-Terminal-v1.2.1.bin` and flash.
+3. Select `T-Deck-Ai-Terminal-v1.2.2.bin` and flash.
 
 **Option 2 — Build and flash from source:**
 
@@ -74,7 +74,7 @@ Or build the binary and copy it to SD for M5Launcher:
 
 ```sh
 pio run
-copy .pio\build\T-Deck\firmware.bin F:\T-Deck-Ai-Terminal-v1.2.1.bin
+copy .pio\build\T-Deck\firmware.bin F:\T-Deck-Ai-Terminal-v1.2.2.bin
 ```
 
 ## SD Card Setup

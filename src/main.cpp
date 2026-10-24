@@ -3,7 +3,7 @@
 #include <SPI.h>
 #include <SD.h>
 #include <TFT_eSPI.h>
-#include <WebServer.h>
+#include <WiFi.h>
 #include <TouchLib.h>
 
 #include "ui/theme.h"
@@ -72,50 +72,6 @@ enum Screen { SCR_HOME, SCR_CHAT, SCR_WEATHER, SCR_SOLAR, SCR_BTC, SCR_SYSINFO, 
 
 static Screen    s_screen = SCR_HOME;
 static TFT_eSPI  tft;
-static WebServer s_webServer(80);
-
-// ── WiFi screenshot server ────────────────────────────────────────────────────
-// GET http://<device-ip>/ss  → downloads screen.bmp (24-bit BMP, ~230 KB).
-// Reads rows via tft.readRect() over SPI — takes 2-5 seconds per request.
-static void handleScreenshot() {
-    const int W = SCREEN_W, H = SCREEN_H;
-    const int fileSize = 54 + W * H * 3;
-
-    // BITMAPFILEHEADER + BITMAPINFOHEADER (negative height = top-down)
-    uint8_t hdr[54];
-    memset(hdr, 0, sizeof(hdr));
-    hdr[0] = 'B'; hdr[1] = 'M';
-    hdr[2] = fileSize & 0xFF; hdr[3] = (fileSize >> 8) & 0xFF;
-    hdr[4] = (fileSize >> 16) & 0xFF; hdr[5] = (fileSize >> 24) & 0xFF;
-    hdr[10] = 54;   // pixel data offset
-    hdr[14] = 40;   // BITMAPINFOHEADER size
-    hdr[18] = W & 0xFF; hdr[19] = (W >> 8) & 0xFF;
-    int32_t negH = -H;
-    memcpy(&hdr[22], &negH, 4);
-    hdr[26] = 1;    // colour planes
-    hdr[28] = 24;   // bits per pixel (RGB888)
-
-    s_webServer.setContentLength(fileSize);
-    s_webServer.sendHeader("Content-Disposition", "attachment; filename=\"screen.bmp\"");
-    s_webServer.send(200, "image/bmp", "");
-    s_webServer.sendContent((const char*)hdr, 54);
-
-    uint16_t px[W];
-    uint8_t  row[W * 3];
-    for (int y = 0; y < H; y++) {
-        tft.readRect(0, y, W, 1, px);
-        for (int x = 0; x < W; x++) {
-            uint16_t c = px[x];
-            // TFT readback returns RGB565 with bytes reversed on the T-Deck panel.
-            // /ss?raw=1 keeps the original path for quick comparison.
-            if (!s_webServer.hasArg("raw")) c = (uint16_t)((c << 8) | (c >> 8));
-            row[x * 3 + 0] = (c & 0x1F) << 3;           // B
-            row[x * 3 + 1] = ((c >> 5) & 0x3F) << 2;    // G
-            row[x * 3 + 2] = ((c >> 11) & 0x1F) << 3;   // R
-        }
-        s_webServer.sendContent((const char*)row, W * 3);
-    }
-}
 
 // ── Keyboard read ─────────────────────────────────────────────────────────────
 static char readKeyboard() {
@@ -633,8 +589,6 @@ static void bootWifi() {
             tft.setTextColor(g_themeColor, COL_BG);
             tft.drawString(tbuf, 4, 56);
         }
-        s_webServer.on("/ss", HTTP_GET, handleScreenshot);
-        s_webServer.begin();
         delay(600);
     } else {
         tft.setTextColor(COL_AMBER, COL_BG);
@@ -775,8 +729,6 @@ static void handleSerialScreenshot() {
 
 // ── loop ──────────────────────────────────────────────────────────────────────
 void loop() {
-    s_webServer.handleClient();  // non-blocking; serves /ss screenshot on demand
-
     // Serial screenshot protocol (USB-CDC, no WiFi needed)
     if (Serial.available()) {
         int cmd = Serial.read();
@@ -784,16 +736,6 @@ void loop() {
             Serial.println("READY");
         } else if (cmd == 'S' || cmd == 's') {
             handleSerialScreenshot();
-        } else if (cmd == 'B' || cmd == 'b') {
-            // Screenshot tool's --boot mode: the splash only exists for 2.2 s
-            // inside setup(), before this handler is running, so redraw it on
-            // demand and put the home screen back afterwards.
-            drawSplash();
-            delay(120);
-            handleSerialScreenshot();
-            s_screen = SCR_HOME;
-            homeInit(tft);
-            touchDrain();
         }
     }
 

@@ -1,13 +1,13 @@
 T-Deck AI Terminal TODO
 =======================
-Session: 2026-10-23 (Quantum-Meteor data layer, AEWS/OUTAGES, six-coin list, docs)
+Session: 2026-10-24 (v1.2.2: splash branding, HTTP screenshot server removed)
 
 One list per repo: the server half of any item lives in MayDay-AI/todo.txt, and the
 device half lives here. An item that needs both says where the other half is.
 
 STATE AT END OF SESSION
-- Firmware v1.2.1 builds clean (RAM 26.5%, flash 18.0%), flashed and confirmed
-  on the deck. The SD card holds the matching `Ai-Terminal-2026-10-23.bin`.
+- Firmware v1.2.2 builds clean and is published. The image is ~25 KB smaller
+  than v1.2.1 (1,155,008 bytes) because the HTTP screenshot server is gone.
 - Card config verified: `personas/p1.txt` = SIX, `p2.txt` = NOVA (both `profile:
   Relaxed`), `assist1.txt` = six, `assist2.txt` = nova, `crypto.txt` = six coins,
   portal / token / commander-code files all present and well-formed.
@@ -24,6 +24,18 @@ STATE AT END OF SESSION
       a Worker route; today it is r/news + NPR.
 
 ───── COMPLETED ────────────────────────────────────────────────────────────────
+
+[x] v1.2.2 — SPLASH BRANDING, NO HTTP SERVER (2026-10-24).
+
+    * The boot splash reads xXAi-TerminalXx (was Ai-Field-Terminal). Captured
+      with a scratch serial command, saved as images/Boot.png and used as the
+      README hero; the scratch command did not ship.
+    * The WiFi screenshot server is gone: /ss, the WebServer dependency and the
+      B serial command removed. The deck no longer opens port 80, and the image
+      dropped 25,392 bytes (1,180,400 -> 1,155,008). The USB S command stays for
+      development.
+    * screenshot.py back to its screen-only mode; the --boot flag belonged to
+      the removed B command.
 
 [x] GALLERY REFRESH (2026-10-23, v1.2.1).
 
