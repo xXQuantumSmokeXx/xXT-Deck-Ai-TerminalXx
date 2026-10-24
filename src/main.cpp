@@ -570,7 +570,7 @@ static void drawSplashLogo(TFT_eSPI &t, int cx, int cy) {
     }
 }
 
-static void showSplash() {
+static void drawSplash() {
     tft.fillScreen(COL_BG);
 
     // Corner border
@@ -587,13 +587,16 @@ static void showSplash() {
     // Device name
     tft.setTextFont(FONT_MED);
     tft.setTextColor(g_themeColor, COL_BG);
-    tft.drawCentreString("Ai-Field-Terminal", SCREEN_W / 2, 148, FONT_MED);
+    tft.drawCentreString("xXAi-TerminalXx", SCREEN_W / 2, 148, FONT_MED);
 
     // Studio tag
     tft.setTextFont(FONT_SMALL);
     tft.setTextColor(g_themeColor, COL_BG);
     tft.drawCentreString("xXQuantum-SmokeXx", SCREEN_W / 2, 184, FONT_SMALL);
+}
 
+static void showSplash() {
+    drawSplash();
     delay(2200);
     tft.fillScreen(COL_BG);
 }
