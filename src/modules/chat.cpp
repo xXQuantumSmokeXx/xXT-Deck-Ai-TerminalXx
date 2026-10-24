@@ -219,18 +219,14 @@ static String readLine(const String &prompt, bool mask = false) {
 // ── Topbar ────────────────────────────────────────────────────────────────────
 static void drawChatTopbar() {
     PersonaDef *p = personaMgrGet();
-    char title[56];
-    // Show slot indicator if more than one persona loaded
-    if (personaMgrLoadedCount() > 1) {
-        snprintf(title, sizeof(title), ">> %s [%d/%d]",
-                 p->name, personaMgrCurrentSlot() + 1, personaMgrLoadedCount());
-    } else {
-        snprintf(title, sizeof(title), ">> %s", p->name);
-    }
-    String tgt = s_aiTarget; tgt.toUpperCase();
-    char rightLabel[16];
-    snprintf(rightLabel, sizeof(rightLabel), "%s Q=home", tgt.c_str());
-    drawTopbar(*s_tft, title, rightLabel, g_themeColor);
+    char title[40];
+    // Follow the brain rather than the card. Typing SIX/NOVA must change this
+    // line even if the matching card failed to load; the card name is only the
+    // fallback when no assistant is configured (2026-10-23).
+    String who = s_aiTarget.length() ? s_aiTarget : String(p->name);
+    who.toUpperCase();
+    snprintf(title, sizeof(title), ">> %s", who.c_str());
+    drawTopbar(*s_tft, title, "Q=HOME", g_themeColor);
     drawStatusBar(*s_tft, WiFi.isConnected(), false, p->title[0] ? p->title : p->name, 0);
 }
 
@@ -381,20 +377,16 @@ void chatInit(TFT_eSPI &tft) {
     s_code      = nvsGetString("commander_code", "");
     s_token     = nvsGetString("portal_token", "");
     ctxClear();
-    Serial.printf("[Chat] url='%s' assist='%s' token=%d code=%d\n",
+    PersonaDef *p0 = personaMgrGet();
+    Serial.printf("[Chat] url='%s' assist='%s' token=%d code=%d card='%s' slot=%d loaded=%d\n",
                   nvsGetString("server_url", "").c_str(), s_aiTarget.c_str(),
-                  (int)s_token.length(), (int)s_code.length());
+                  (int)s_token.length(), (int)s_code.length(),
+                  p0->name, personaMgrCurrentSlot(), personaMgrLoadedCount());
 
     tft.fillScreen(COL_BG);
     drawChatTopbar();
     redrawInput();
-
-    PersonaDef *p = personaMgrGet();
-    pushLine(">> " + String(p->name) + (p->title[0] ? " - " + String(p->title) : ""), g_themeColor);
-    pushWrapped("", "persona  clear  help", g_themeColor);
-    pushLine("setup: SD card (README)", COL_SYS);
     redrawChatArea();
-    redrawInput();
 }
 
 bool chatLoop(TFT_eSPI &tft) {
@@ -493,6 +485,13 @@ bool chatLoop(TFT_eSPI &tft) {
                         s_aiTarget = s_assist[i];
                         nvsPutString("ai_target", s_aiTarget);
                         ctxClear();
+                        // Move the persona card too, so the header follows the
+                        // brain: typing "nova" used to switch the target while
+                        // the top bar kept saying SIX (2026-10-23).
+                        if (i < PERSONA_SLOT_COUNT) personaMgrSet(i);
+                        Serial.printf("[Chat] switch target='%s' slot=%d card='%s' loaded=%d\n",
+                                      s_aiTarget.c_str(), personaMgrCurrentSlot(),
+                                      personaMgrGet()->name, personaMgrLoadedCount());
                         String disp = s_aiTarget; disp.toUpperCase();
                         pushLine(">> " + disp, g_themeColor);
                         drawChatTopbar();

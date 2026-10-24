@@ -43,15 +43,7 @@ static char readKeyboard() {
 }
 
 static void stampSync() {
-    struct tm ti;
-    if (getLocalTime(&ti, 0)) {
-        int h = ti.tm_hour;
-        const char *ap = h >= 12 ? "PM" : "AM";
-        if (h > 12) h -= 12; else if (h == 0) h = 12;
-        snprintf(s_sync, sizeof(s_sync), "%d:%02d %s", h, ti.tm_min, ap);
-    } else {
-        strlcpy(s_sync, "--:--", sizeof(s_sync));
-    }
+    fmtClock12(time(nullptr), s_sync, sizeof(s_sync));
 }
 
 // Green (1) → amber (3) → red (5), same ladder as the CYD screen.
@@ -154,7 +146,7 @@ static void drawAews() {
     t.drawString("APOCALYPSE EARLY WARNING", 4, TOPBAR_H + 3);
 
     char syncBuf[20];
-    snprintf(syncBuf, sizeof(syncBuf), "%s %s", s_lastFail ? "FAIL" : "SYNC", s_sync);
+    snprintf(syncBuf, sizeof(syncBuf), "%s %s", s_lastFail ? "FAIL" : "LIVE", s_sync);
     int sw = t.textWidth(syncBuf);
     t.setTextColor(s_lastFail ? COL_AMBER : g_themeColor, COL_BG);
     t.drawString(syncBuf, SCREEN_W - sw - 4, TOPBAR_H + 3);

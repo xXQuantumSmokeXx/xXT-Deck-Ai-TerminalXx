@@ -5,6 +5,28 @@
 #include "theme.h"
 #include "../config/nvs_config.h"
 
+// ── Standard fetch stamp ─────────────────────────────────────────────────────
+// Weather set the format: "LIVE 10:31 PM" / "CACHED 10:31 PM", 12-hour. Every
+// data screen that reports when its data arrived uses these helpers, so the
+// status bars read the same instead of each inventing its own label.
+inline void fmtClock12(time_t t, char *out, size_t len) {
+    struct tm ti;
+    if (t > 0 && localtime_r(&t, &ti)) {
+        int h = ti.tm_hour;
+        const char *ap = h >= 12 ? "PM" : "AM";
+        if (h > 12) h -= 12; else if (h == 0) h = 12;
+        snprintf(out, len, "%d:%02d %s", h, ti.tm_min, ap);
+    } else {
+        strlcpy(out, "--:--", len);
+    }
+}
+
+inline void fmtStamp(bool cached, time_t t, char *out, size_t len) {
+    char clk[12];
+    fmtClock12(t, clk, sizeof(clk));
+    snprintf(out, len, "%s %s", cached ? "CACHED" : "LIVE", clk);
+}
+
 // ── Corner brackets (6px L-shape) ────────────────────────────────────────────
 inline void drawCornerBrackets(TFT_eSPI &tft, int x, int y, int w, int h, uint16_t col, int len = 6) {
     // top-left

@@ -40,7 +40,7 @@ struct SolarData {
     // Meta
     bool  valid;
     bool  fromCache;
-    char  syncStr[12];
+    time_t fetchedAt;       // drives the standard LIVE/CACHED stamp
 };
 
 static SolarData s_sol;
@@ -189,17 +189,7 @@ static void fetchAllData() {
 
     s_sol.valid     = true;
     s_sol.fromCache = false;
-
-    struct tm ti;
-    if (getLocalTime(&ti, 0)) {
-        int h = ti.tm_hour;
-        const char *ap = h >= 12 ? "PM" : "AM";
-        if (h > 12) h -= 12;
-        else if (h == 0) h = 12;
-        snprintf(s_sol.syncStr, sizeof(s_sol.syncStr), "%d:%02d %s", h, ti.tm_min, ap);
-    } else {
-        strlcpy(s_sol.syncStr, "--:--", sizeof(s_sol.syncStr));
-    }
+    s_sol.fetchedAt = time(nullptr);
 
     nvsPutInt("sol_cached_at", (int)time(nullptr));
     nvsPutInt("sol_kp_cur",    (int)(s_sol.kpCurrent    * 100));
@@ -282,7 +272,7 @@ static bool loadFromCache() {
 
     s_sol.valid     = true;
     s_sol.fromCache = true;
-    strlcpy(s_sol.syncStr, "CACHED", sizeof(s_sol.syncStr));
+    s_sol.fetchedAt = (time_t)cachedAt;
     return true;
 }
 
@@ -304,8 +294,10 @@ static void drawSolarScreen() {
     s_tft->fillRect(0, TOPBAR_H, SCREEN_W, STATUSBAR_H, COL_BG);
     s_tft->setTextFont(FONT_SMALL);
     if (s_sol.valid) {
+        char stamp[20];
+        fmtStamp(s_sol.fromCache, s_sol.fetchedAt, stamp, sizeof(stamp));
         s_tft->setTextColor(s_sol.fromCache ? COL_AMBER : g_themeColor, COL_BG);
-        s_tft->drawString(s_sol.syncStr, 4, TOPBAR_H + 3);
+        s_tft->drawString(stamp, 4, TOPBAR_H + 3);
         char kpLbl[24];
         snprintf(kpLbl, sizeof(kpLbl), "Kp %.1f  %s", s_sol.kpCurrent, kpCondition(s_sol.kpCurrent));
         int w = s_tft->textWidth(kpLbl);

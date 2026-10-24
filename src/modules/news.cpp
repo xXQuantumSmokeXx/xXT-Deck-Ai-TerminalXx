@@ -7,17 +7,20 @@
 #include <WiFi.h>
 #include <time.h>
 
-// Headlines now come from the Quantum-Meteor /news route (~1.1 KB, ten
-// stories, Reddit with NPR as the fallback) instead of four direct RSS pulls.
-// Two of those four feeds were already dead in October 2026: CDC's rss.rss
-// answers 200 with an empty body and WHO's news-releases.xml is a 404, so the
-// screen had been showing ABC and BBC only. The trade is deliberate: agency
-// health feeds are gone, general news is back.
+// Headlines come from the Quantum-Meteor /news route (~1.1 KB, ten stories,
+// Reddit with NPR as the fallback) instead of four direct RSS pulls. Two of
+// those four feeds were already dead in October 2026: CDC's rss.rss answers 200
+// with an empty body and WHO's news-releases.xml is a 404, so the screen had
+// been showing ABC and BBC only.
+//
+// Layout follows USGS/FIRES' full-width rows, but at reading size: 16 px
+// headlines in 19 px rows, ten of ten filling the content area. The old 44px
+// two-line rows only showed four.
 
 #define KB_ADDR        0x55
 #define NEWS_MAX_ITEMS 10
-#define NEWS_VISIBLE   4
-#define NEWS_ROW_H     44
+#define NEWS_ROW_H     19
+#define NEWS_VISIBLE   (CONTENT_H / NEWS_ROW_H)
 #define NEWS_CACHE_TTL (15 * 60)
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -31,7 +34,11 @@ static NewsItem  s_items[NEWS_MAX_ITEMS];
 static int       s_itemCount = 0;
 static int       s_scrollOff = 0;
 static bool      s_cached    = false;
+static time_t    s_stampAt   = 0;      // when these headlines arrived
 static char      s_errMsg[52] = "";
+static int       s_marqueePx   = 0;    // sideways shift for long headlines
+static uint32_t  s_marqueeNext = 0;
+static bool      s_marqueeHold = false;
 
 static const BottomKey NEWS_MENU[] = { {'R', "FRESH"}, {'Q', "HOME"} };
 
@@ -52,6 +59,67 @@ static void decodeEntities(char *buf, size_t size) {
     s.replace("&#39;",  "'");
     s.replace("&apos;", "'");
     strlcpy(buf, s.c_str(), size);
+}
+
+// ── Row layout + sideways ticker ─────────────────────────────────────────────
+// One 19 px row per headline. Headlines wider than the row slide sideways a few
+// pixels at a time, hold at the end, then snap back — the alternatives were
+// truncating the text or shrinking it, and both lose the story (2026-10-23).
+static void drawNewsRows(bool movingOnly) {
+    s_tft->setTextFont(FONT_MED);
+    int visible = min(s_itemCount - s_scrollOff, NEWS_VISIBLE);
+    const int avail = SCREEN_W - 8;
+
+    for (int i = 0; i < visible; i++) {
+        const NewsItem &item = s_items[s_scrollOff + i];
+        int ry = CONTENT_Y + i * NEWS_ROW_H;
+        int over = s_tft->textWidth(item.title) - avail;
+        if (movingOnly && over <= 0) continue;
+
+        if (movingOnly) s_tft->fillRect(0, ry, SCREEN_W, NEWS_ROW_H, COL_BG);
+
+        int shift = (over > 0) ? min(s_marqueePx, over) : 0;
+        s_tft->setTextColor(g_themeColor, COL_BG);
+        s_tft->drawString(item.title, 4 - shift, ry + 1);
+    }
+}
+
+static void marqueeTick() {
+    if (!s_tft || s_itemCount == 0) return;
+    uint32_t now = millis();
+    if (now < s_marqueeNext) return;
+
+    s_tft->setTextFont(FONT_MED);
+    int visible = min(s_itemCount - s_scrollOff, NEWS_VISIBLE);
+    int maxOver = 0;
+    for (int i = 0; i < visible; i++) {
+        int over = s_tft->textWidth(s_items[s_scrollOff + i].title) - (SCREEN_W - 8);
+        if (over > maxOver) maxOver = over;
+    }
+    if (maxOver <= 0) { s_marqueeNext = now + 500; return; }
+
+    if (s_marqueeHold) {
+        // End of a pass: snap back to the start, then rest before moving again.
+        s_marqueePx   = 0;
+        s_marqueeHold = false;
+        s_marqueeNext = now + 1400;
+    } else {
+        s_marqueePx += 3;
+        if (s_marqueePx >= maxOver) {
+            s_marqueePx   = maxOver;
+            s_marqueeHold = true;
+            s_marqueeNext = now + 1600;   // hold the tail long enough to read
+        } else {
+            s_marqueeNext = now + 90;
+        }
+    }
+    drawNewsRows(true);
+}
+
+static void marqueeReset() {
+    s_marqueePx   = 0;
+    s_marqueeHold = false;
+    s_marqueeNext = millis() + 1200;      // read the beginning before it moves
 }
 
 // ── NVS cache ─────────────────────────────────────────────────────────────────
@@ -95,6 +163,7 @@ static bool loadCache() {
         pos = end + 1;
     }
     s_cached = true;
+    s_stampAt = (time_t)ts;
     return (s_itemCount > 0);
 }
 
@@ -129,76 +198,43 @@ static bool fetchNews() {
         return false;
     }
 
-    s_cached = false;
+    s_cached  = false;
+    s_stampAt = time(nullptr);
     return true;
-}
-
-// ── Word-wrap helper — splits a headline across two lines ────────────────────
-static void wordWrap(const char *text, int maxW1, int maxW2, String &l1, String &l2) {
-    String full(text);
-    s_tft->setTextFont(FONT_MED);
-    if (s_tft->textWidth(full) <= maxW1) { l1 = full; l2 = ""; return; }
-
-    int split = -1;
-    for (int i = 0; i < (int)full.length(); i++) {
-        if (full[i] != ' ') continue;
-        if (s_tft->textWidth(full.substring(0, i)) <= maxW1) split = i;
-        else break;
-    }
-    if (split < 0) {
-        l1 = full;
-        while (l1.length() > 1 && s_tft->textWidth(l1) > maxW1) l1.remove(l1.length() - 1);
-        l2 = "";
-        return;
-    }
-    l1 = full.substring(0, split);
-    l2 = full.substring(split + 1);
-    if (s_tft->textWidth(l2) > maxW2) {
-        while (l2.length() > 2 && (int)l2.length() > 0 && s_tft->textWidth(l2 + "..") > maxW2)
-            l2.remove(l2.length() - 1);
-        l2 += "..";
-    }
 }
 
 // ── Screen draw ───────────────────────────────────────────────────────────────
 static void drawNewsScreen() {
     s_tft->fillScreen(COL_BG);
 
-    char timeBuf[12] = "";
-    struct tm ti;
-    if (getLocalTime(&ti, 0)) {
-        int h = ti.tm_hour;
-        const char *ap = h >= 12 ? "PM" : "AM";
-        if (h > 12) h -= 12; else if (h == 0) h = 12;
-        snprintf(timeBuf, sizeof(timeBuf), "%d:%02d %s", h, ti.tm_min, ap);
-    }
+    char timeBuf[12];
+    fmtClock12(time(nullptr), timeBuf, sizeof(timeBuf));
     drawTopbar(*s_tft, "< HOME | NEWS", timeBuf, g_themeColor);
 
+    // Status bar: fetch stamp on the left, story count on the right — the same
+    // shape USGS, FIRES and WEATHER use.
     s_tft->fillRect(0, TOPBAR_H, SCREEN_W, STATUSBAR_H, COL_BG);
     s_tft->setTextFont(FONT_SMALL);
-    {
-        static const char *DAYS[]   = {"Sun","Mon","Tue","Wed","Thu","Fri","Sat"};
-        static const char *MONTHS[] = {"Jan","Feb","Mar","Apr","May","Jun",
-                                       "Jul","Aug","Sep","Oct","Nov","Dec"};
-        struct tm lt;
-        if (getLocalTime(&lt, 0)) {
-            char dateBuf[28];
-            snprintf(dateBuf, sizeof(dateBuf), "%s %s %d %d",
-                     DAYS[lt.tm_wday], MONTHS[lt.tm_mon], lt.tm_mday, lt.tm_year + 1900);
-            s_tft->setTextColor(g_themeColor, COL_BG);
-            s_tft->drawString(dateBuf, 4, TOPBAR_H + 3);
-        }
-    }
+
+    char stamp[20];
+    if (s_stampAt > 0) fmtStamp(s_cached, s_stampAt, stamp, sizeof(stamp));
+    else               strlcpy(stamp, "NO DATA", sizeof(stamp));
+    s_tft->setTextColor(s_cached ? COL_AMBER : g_themeColor, COL_BG);
+    s_tft->drawString(stamp, 4, TOPBAR_H + 3);
+
     if (s_itemCount > 0) {
-        char cntBuf[24];
-        snprintf(cntBuf, sizeof(cntBuf), "%s%d STORIES", s_cached ? "~" : "", s_itemCount);
+        char cntBuf[28];
+        if (s_items[0].when[0])
+            snprintf(cntBuf, sizeof(cntBuf), "%d STORIES %s", s_itemCount, s_items[0].when);
+        else
+            snprintf(cntBuf, sizeof(cntBuf), "%d STORIES", s_itemCount);
         int cw = s_tft->textWidth(cntBuf);
         s_tft->setTextColor(s_cached ? COL_AMBER : g_themeColor, COL_BG);
         s_tft->drawString(cntBuf, SCREEN_W - cw - 4, TOPBAR_H + 3);
     }
     s_tft->drawFastHLine(0, TOPBAR_H + STATUSBAR_H - 1, SCREEN_W, g_themeColor);
 
-    int y = CONTENT_Y + 2;
+    int y = CONTENT_Y;
 
     if (s_itemCount == 0) {
         s_tft->setTextFont(FONT_MED);
@@ -216,29 +252,7 @@ static void drawNewsScreen() {
         return;
     }
 
-    int visible = min(s_itemCount - s_scrollOff, NEWS_VISIBLE);
-
-    for (int i = 0; i < visible; i++) {
-        const NewsItem &item = s_items[s_scrollOff + i];
-        int ry = y + i * NEWS_ROW_H;
-
-        s_tft->setTextFont(FONT_SMALL);
-        int dateW = item.when[0] ? s_tft->textWidth(item.when) : 0;
-        if (dateW) {
-            s_tft->setTextColor(g_themeColor, COL_BG);
-            s_tft->drawString(item.when, SCREEN_W - dateW - 4, ry + 2);
-        }
-
-        String l1, l2;
-        int line1W = SCREEN_W - 8 - (dateW ? dateW + 8 : 0);
-        wordWrap(item.title, line1W, SCREEN_W - 16, l1, l2);
-
-        s_tft->setTextFont(FONT_MED);
-        s_tft->setTextColor(g_themeColor, COL_BG);
-        s_tft->drawString(l1, 4, ry);
-        if (l2.length() > 0)
-            s_tft->drawString(l2, 4, ry + 20);
-    }
+    drawNewsRows(false);
 
     drawMenuBar(*s_tft, NEWS_MENU, 2);
 }
@@ -266,8 +280,10 @@ void newsInit(TFT_eSPI &tft) {
     s_itemCount  = 0;
     s_scrollOff  = 0;
     s_cached     = false;
+    s_stampAt    = 0;
     strlcpy(s_errMsg, "", sizeof(s_errMsg));
 
+    marqueeReset();
     if (loadCache()) {
         drawNewsScreen();
         return;
@@ -287,13 +303,14 @@ void newsInit(TFT_eSPI &tft) {
 bool newsLoop(TFT_eSPI &tft) {
     (void)tft;
     char key = readKeyboard();
-    if (key == 0) { delay(20); return true; }
+    if (key == 0) { marqueeTick(); delay(20); return true; }
 
     if (key == 'q' || key == 'Q' || key == 27 || key == 17 || key == 8) return false;
 
     if (key == 'r' || key == 'R') {
         nvsPutInt("news2_at", 0);
         s_cached    = false;
+        s_stampAt   = 0;
         s_itemCount = 0;
         s_scrollOff = 0;
         strlcpy(s_errMsg, "", sizeof(s_errMsg));
@@ -303,6 +320,7 @@ bool newsLoop(TFT_eSPI &tft) {
         } else {
             strlcpy(s_errMsg, "No WiFi connection", sizeof(s_errMsg));
         }
+        marqueeReset();
         drawNewsScreen();
     }
 
@@ -311,9 +329,9 @@ bool newsLoop(TFT_eSPI &tft) {
 }
 
 void newsTrackballUp() {
-    if (s_scrollOff > 0) { s_scrollOff--; drawNewsScreen(); }
+    if (s_scrollOff > 0) { s_scrollOff--; marqueeReset(); drawNewsScreen(); }
 }
 void newsTrackballDown() {
     int maxOff = max(0, s_itemCount - NEWS_VISIBLE);
-    if (s_scrollOff < maxOff) { s_scrollOff++; drawNewsScreen(); }
+    if (s_scrollOff < maxOff) { s_scrollOff++; marqueeReset(); drawNewsScreen(); }
 }

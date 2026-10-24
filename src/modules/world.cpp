@@ -41,7 +41,6 @@ static FireItem   s_fires[FIRE_MAX];
 static int        s_fireCount    = 0;
 static bool       s_showingFires  = false;
 static int        s_worldScrollOff = 0;
-static char       s_syncStr[12]   = "";
 static time_t     s_quakeFetchedAt = 0;
 static time_t     s_fireFetchedAt  = 0;
 static TFT_eSPI  *s_tft           = nullptr;
@@ -55,16 +54,6 @@ static char readKeyboard() {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-static void updateSyncStr() {
-    struct tm ti;
-    if (getLocalTime(&ti, 0)) {
-        int h = ti.tm_hour;
-        const char *ap = h >= 12 ? "PM" : "AM";
-        if (h > 12) h -= 12;
-        else if (h == 0) h = 12;
-        snprintf(s_syncStr, sizeof(s_syncStr), "%d:%02d %s", h, ti.tm_min, ap);
-    }
-}
 
 static void truncStr(const char *src, char *dst, int maxChars) {
     if (!src || maxChars <= 0) { dst[0] = '\0'; return; }
@@ -173,25 +162,31 @@ static bool fetchFires() {
 }
 
 // ── Shared screen header ──────────────────────────────────────────────────────
+// Top bar: title + clock. Status bar: the standard fetch stamp on the left and
+// the row count on the right. The old right-hand "M3.5+: 1-12/36" range read
+// like a garbled date and left the left half of the bar empty.
 static void drawWorldHeader(const char *title, const char *countLabel, int count) {
+    char clockStr[12];
+    fmtClock12(time(nullptr), clockStr, sizeof(clockStr));
+    drawTopbar(*s_tft, title, clockStr, g_themeColor);
+
     s_tft->fillRect(0, TOPBAR_H, SCREEN_W, STATUSBAR_H, COL_BG);
     s_tft->setTextFont(FONT_SMALL);
+
+    time_t fetched = s_showingFires ? s_fireFetchedAt : s_quakeFetchedAt;
+    char stamp[20];
+    if (fetched > 0) fmtStamp(false, fetched, stamp, sizeof(stamp));
+    else             strlcpy(stamp, "NO DATA", sizeof(stamp));
+    s_tft->setTextColor(g_themeColor, COL_BG);
+    s_tft->drawString(stamp, 4, TOPBAR_H + 3);
+
     if (count > 0) {
-        char buf[36];
-        int visible = (int)(CONTENT_H / ROW_H);
-        if (count > visible) {
-            int from = s_worldScrollOff + 1;
-            int to   = min(s_worldScrollOff + visible, count);
-            snprintf(buf, sizeof(buf), "%s: %d-%d/%d", countLabel, from, to, count);
-        } else {
-            snprintf(buf, sizeof(buf), "%s: %d", countLabel, count);
-        }
+        char buf[28];
+        snprintf(buf, sizeof(buf), "%s %d", countLabel, count);
         int w = s_tft->textWidth(buf);
-        s_tft->setTextColor(g_themeColor, COL_BG);
         s_tft->drawString(buf, SCREEN_W - w - 4, TOPBAR_H + 3);
     }
     s_tft->drawFastHLine(0, TOPBAR_H + STATUSBAR_H - 1, SCREEN_W, g_themeColor);
-    drawTopbar(*s_tft, title, s_syncStr, g_themeColor);
 }
 
 // ── Quakes screen ─────────────────────────────────────────────────────────────
@@ -307,7 +302,6 @@ void worldInit(TFT_eSPI &tft) {
     s_tft           = &tft;
     s_showingFires  = false;
     s_worldScrollOff = 0;
-    updateSyncStr();
     if (!cacheFresh(s_quakeFetchedAt, s_quakeCount, QUAKE_TTL_SEC)) {
         tft.fillScreen(COL_BG);
         drawTopbar(tft, "< HOME | USGS", "", g_themeColor);
@@ -315,7 +309,6 @@ void worldInit(TFT_eSPI &tft) {
         tft.setTextColor(g_themeColor, COL_BG);
         tft.drawCentreString("Fetching USGS data...", SCREEN_W / 2, SCREEN_H / 2, FONT_SMALL);
         if (WiFi.isConnected()) fetchQuakes();
-        updateSyncStr();
     }
     drawQuakesScreen();
 }
@@ -324,7 +317,6 @@ void worldInitFires(TFT_eSPI &tft) {
     s_tft           = &tft;
     s_showingFires  = true;
     s_worldScrollOff = 0;
-    updateSyncStr();
     if (!cacheFresh(s_fireFetchedAt, s_fireCount, FIRE_TTL_SEC)) {
         tft.fillScreen(COL_BG);
         drawTopbar(tft, "< HOME | FIRES", "", g_themeColor);
@@ -332,7 +324,6 @@ void worldInitFires(TFT_eSPI &tft) {
         tft.setTextColor(g_themeColor, COL_BG);
         tft.drawCentreString("Fetching fire data...", SCREEN_W / 2, SCREEN_H / 2, FONT_SMALL);
         if (WiFi.isConnected()) fetchFires();
-        updateSyncStr();
     }
     drawFiresScreen();
 }
@@ -349,7 +340,6 @@ bool worldLoop(TFT_eSPI &tft) {
             if (s_showingFires) fetchFires();
             else                fetchQuakes();
         }
-        updateSyncStr();
         if (s_showingFires) drawFiresScreen();
         else                drawQuakesScreen();
     }

@@ -5,9 +5,9 @@ A tactical multi-function terminal for the LILYGO T-Deck ESP32-S3, consolidating
 [![Support on Patreon](https://img.shields.io/badge/Support-Patreon-orange)](https://www.patreon.com/c/xXQuantumSmokeXx)
 
 <table><tr>
-<td><img src="images/MainUi.png" alt="Main launcher" width="280"></td>
-<td><img src="OrangeTheme.png" alt="Orange theme" width="280"></td>
-<td><img src="PurpleTheme.png" alt="Purple theme" width="280"></td>
+<td><img src="images/MainUi-Cyan.png" alt="Cyan theme" width="280"></td>
+<td><img src="images/MainUi-Orange.png" alt="Orange theme" width="280"></td>
+<td><img src="images/MainUi-Purple.png" alt="Purple theme" width="280"></td>
 </tr></table>
 
 ## Display Gallery
@@ -20,11 +20,17 @@ A tactical multi-function terminal for the LILYGO T-Deck ESP32-S3, consolidating
 | --- | --- | --- |
 | ![CODEX screen](images/T-Deck-Display/Codex.png) | ![Crypto screen](images/T-Deck-Display/Crypto.png) | ![Fires screen](images/T-Deck-Display/Fires.png) |
 
-| USGS | System | Oracle |
+| USGS | AEWS | OUTAGES |
 | --- | --- | --- |
-| ![USGS screen](images/T-Deck-Display/USGS.png) | ![System screen](images/T-Deck-Display/System.png) | ![Oracle screen](Oracle.png) |
+| ![USGS screen](images/T-Deck-Display/USGS.png) | ![AEWS screen](images/T-Deck-Display/AEWS.png) | ![OUTAGES screen](images/T-Deck-Display/OUTAGES.png) |
 
-> These captures are from the 2026-10-18 build and predate the Quantum-Meteor data move, AEWS/OUTAGES, and the six-coin list. Refreshed screenshots are pending.
+| NEWS | System | Oracle |
+| --- | --- | --- |
+| ![NEWS screen](images/T-Deck-Display/NEWS.png) | ![System screen](images/T-Deck-Display/System.png) | ![Oracle screen](Oracle.png) |
+
+The three homes are themes, not different screens: cyan, orange and purple, all
+set from SYSTEM → `T`. Screen captures come from `screenshot.py` over USB-CDC;
+`capture.bat` wraps it for a one-click grab on Windows.
 
 ## Features
 
@@ -38,7 +44,7 @@ A tactical multi-function terminal for the LILYGO T-Deck ESP32-S3, consolidating
 - **AEWS** — Apocalypse Early Warning System: tracks ~31,000 business jets against their historical baseline and scores the deviation (level 1–5, z-score) via the Worker. Data by [Kyle McDonald](https://ews.kylemcdonald.net/), ADS-B Exchange
 - **OUTAGES** — US power outages: national reported total, active incidents, top four states, and two 24-hour sparklines (national + your state). Source DOE/ORNL ODIN via the Worker; the local state comes from Cloudflare's view of the connection, so no location setup
 - **ORACLE** — Offline tarot reader: single card, three-card (Past/Present/Future), and five-card Celtic Cross spreads. Full 78-card deck with authentic upright and reversed meanings. Trackball and touch navigation, optional SD save.
-- **NEWS** — Ten headlines from the Quantum-Meteor Worker (Reddit r/news, NPR fallback). NVS-cached, 15-minute TTL.
+- **NEWS** — Ten headlines from the Quantum-Meteor Worker (Reddit r/news, NPR fallback) at reading size, one per 19 px row. NVS-cached, 15-minute TTL.
 - **SYSTEM** — Device, WiFi, SD, heap, uptime, backend, persona status, and brightness control
 - All data screens cache their last successful fetch for instant load and offline resilience
 
@@ -275,6 +281,8 @@ card with the 7-day sparkline. Fear & Greed stays in the status bar either way.
 
 Setup is meant to live on the SD card; the `set…` commands exist so a card left at home does not brick the device.
 
+The top bar always names the assistant being addressed (`>> SIX`). Typing a slug in the chat input switches the target and the card with it, so the header follows.
+
 ### CODEX — MY LOGS
 
 | Input | Action |
@@ -339,7 +347,8 @@ Setup is meant to live on the SD card; the `set…` commands exist so a card lef
 
 - **R**: force refresh — **Q**: home
 - Trackball up/down scrolls headlines
-- Cached for 15 minutes in NVS and refetched on open when stale; a `~` prefix marks cached stories
+- Headlines that don't fit slide sideways on their own, hold at the end, then return; short ones stay put
+- Status bar reads `LIVE 10:31 PM` on the left and `10 STORIES 10/23` on the right, and turns amber when the list came from the NVS cache
 
 ### SYSTEM
 

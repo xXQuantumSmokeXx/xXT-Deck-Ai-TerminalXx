@@ -6,31 +6,14 @@ One list per repo: the server half of any item lives in MayDay-AI/todo.txt, and 
 device half lives here. An item that needs both says where the other half is.
 
 STATE AT END OF SESSION
-- Firmware builds clean (RAM 26.5%, flash 18.0%). The SD card holds
-  `Ai-Terminal-2026-10-23.bin`; the 2 px coin-name nudge is built but not flashed.
+- Firmware v1.2.1 builds clean (RAM 26.5%, flash 18.0%), flashed and confirmed
+  on the deck. The SD card holds the matching `Ai-Terminal-2026-10-23.bin`.
 - Card config verified: `personas/p1.txt` = SIX, `p2.txt` = NOVA (both `profile:
   Relaxed`), `assist1.txt` = six, `assist2.txt` = nova, `crypto.txt` = six coins,
   portal / token / commander-code files all present and well-formed.
 - The Quantum-Meteor Worker was not modified at all this session.
 
 ───── NEXT ─────────────────────────────────────────────────────────────────────
-
-[ ] FLASH THE CARD BUILD AND SPOT-CHECK
-    - CRYPTO: six rows, coin names sitting clear of the symbols.
-    - AEWS and OUTAGES: the 10 px shifts, 12-hour timestamps.
-    - Boot line: 12-hour clock.
-    - AI CHAT: the help line reads `persona clear help`; `help` lists the rest.
-    - SOLAR: wind, Bz, density and CME populated (they were blank on the old build).
-
-[ ] REFRESH THE GALLERY IMAGES — every capture in `images/T-Deck-Display/` is
-    from the 2026-10-18 build and now shows the wrong tiles (SHTF/TRAFFIC), the
-    old SOLAR/NEWS, and a 4-coin list.
-    - Needed: home (AEWS/OUTAGES), AEWS, OUTAGES, CRYPTO (six rows + names),
-      SOLAR, FIRES, USGS, NEWS; chat/codex/oracle/system shots carry over unless
-      the tile or theme changed.
-    - Capture: `python screenshot.py COM<n>` over USB-CDC (device already on the
-      screen, not mid-fetch) or `GET http://<ip>/ss` (BMP) over WiFi; both 320×240.
-    - Replace the files in place so the README table keeps working.
 
 [ ] DECIDE THE NEXT TIER — discussed 2026-10-23, nothing started.
     - Tier 2: VOLCANOES (own tile, or a second page under USGS) and ALMANAC
@@ -41,6 +24,64 @@ STATE AT END OF SESSION
       a Worker route; today it is r/news + NPR.
 
 ───── COMPLETED ────────────────────────────────────────────────────────────────
+
+[x] GALLERY REFRESH (2026-10-23, v1.2.1).
+
+    * Fifteen captures folded in: the three theme homes are now
+      `images/MainUi-Cyan.png`, `MainUi-Orange.png`, `MainUi-Purple.png`; the
+      gallery is a 4x3 table and adds AEWS, OUTAGES and NEWS slots.
+    * Pruned the assets nothing referenced: images/AiTerminal.jpg (4.8 MB) and
+      T-Deck-Display/{Home-Theme,Log,MainUi}.png.
+    * `capture.bat` added (one-click grab via screenshot.py) and `captures/`
+      gitignored; README says where the shots come from.
+
+[x] CHAT CHROME + TWELVE-HEADLINE NEWS + v1.2.1 (2026-10-23, fourth device pass).
+
+    * Chat top bar is now just ">> SIX" — the [1/2] slot counter and the
+      target/"Q=home" label are gone. The persona is the target (each card is
+      paired with its assistant), so there was nothing left for them to say.
+    * The start-up chatter is gone too: no ">> SIX - MayDay AI - Relaxed", no
+      command list, no "setup: SD card" line. The status bar still carries the
+      card's title line, and `help` still prints the command list on demand.
+    * Chat: typing an assistant slug moves the persona card as well, so the top
+      bar follows the brain. Before this, typing "nova" switched the target while
+      the header kept saying SIX; the card only moved through `persona`.
+    * NEWS keeps ten stories at reading size: 16 px headlines in 19 px rows, so
+      the ten fill the content area. Per-row dates are gone; the bar reads
+      "10 STORIES 10/23" (the newest story's date) and every headline gets the
+      full width. A Worker bump to twelve was tried and reverted (redeployed,
+      version 33c0a0c3, /news back to ten). README updated.
+    * SYSTEM reports v1.2.1 and "AEWS + OUTAGES" (was v1.1.9 / "ORACLE + NEWS").
+
+[x] CHAT HEADER + NEWS TICKER (2026-10-23, fifth device pass).
+
+    * Chat: the top bar now derives from the active target, not the persona card,
+      so typing SIX/NOVA always changes it even if the card fails to load. The
+      card is still moved on a slug switch, which keeps the profile in step.
+      Serial logs joined the party: card/slot/loaded on entry, target/slot on
+      switch, so a mismatch is visible in the log instead of guessed at.
+    * NEWS: long headlines scroll sideways on their own — 3 px every 90 ms, a
+      1.6 s hold at the tail, then a snap back and 1.4 s rest. Only rows that
+      overflow are cleared and redrawn, so short headlines never flicker.
+    * README: ticker behaviour, the `10 STORIES 10/23` bar, and the chat header.
+
+[x] STATUS-BAR STANDARD + NEWS DENSITY (2026-10-23, third device pass).
+
+    * Shared helpers in widgets.h: `fmtClock12()` and `fmtStamp()`, which emit
+      "LIVE 10:31 PM" / "CACHED 9:12 PM" — weather's format, now used by every
+      screen that reports when its data arrived.
+    * USGS and FIRES: the left half of the status bar was empty and the right
+      read "M3.5+: 1-12/36", which looked like a garbled date. Left is now the
+      LIVE stamp, right is just "M3.5+ 36" / "FIRES 24", and the top bar carries
+      the clock like the other screens.
+    * NEWS: 8px single-line rows in 16px rows, matching USGS/FIRES — ten
+      headlines on screen at once instead of four two-line rows. Status bar is
+      the shared stamp plus "10 STORIES"; the per-story date moved to the right
+      edge of each row.
+    * SOLAR: "CACHED" on its own was useless; it now prints the cached time
+      ("CACHED 9:12 PM") and "LIVE h:mm" otherwise.
+    * AEWS "SYNC h:mm" and OUTAGES "UPD h:mm" now read "LIVE h:mm" so the words
+      match everywhere; STALE/FAIL are kept for the degraded cases.
 
 [x] SIX-COIN CRYPTO + SCREEN POLISH + DOC AUDIT (2026-10-23, second device pass).
 
