@@ -784,6 +784,16 @@ void loop() {
             Serial.println("READY");
         } else if (cmd == 'S' || cmd == 's') {
             handleSerialScreenshot();
+        } else if (cmd == 'B' || cmd == 'b') {
+            // Screenshot tool's --boot mode: the splash only exists for 2.2 s
+            // inside setup(), before this handler is running, so redraw it on
+            // demand and put the home screen back afterwards.
+            drawSplash();
+            delay(120);
+            handleSerialScreenshot();
+            s_screen = SCR_HOME;
+            homeInit(tft);
+            touchDrain();
         }
     }
 

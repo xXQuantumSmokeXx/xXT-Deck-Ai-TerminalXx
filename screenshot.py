@@ -7,6 +7,12 @@ Double-click to run interactively, or use the command line:
   python screenshot.py                  # auto-detect COM port, save screenshot.png
   python screenshot.py COM11            # specify COM port
   python screenshot.py COM11 home.png   # specify port and output filename
+  python screenshot.py --boot           # re-draw the boot splash and capture that
+  python screenshot.py COM11 --boot boot.png
+
+The splash only exists for ~2 s inside setup(), before the serial handler is
+running, so --boot asks the firmware to redraw it on demand and returns to the
+home screen afterwards. Firmware without that command simply won't answer.
 
 Requires: pip install pyserial
 """
@@ -154,7 +160,7 @@ def write_png(filename, pixels_rgb332):
         print(f"Saved {filename}  ({W}x{H} BMP — pip install pillow for PNG)")
 
 
-def capture(port, outfile):
+def capture(port, outfile, boot=False):
     print(f"Opening {port} without reset...")
     ser = open_serial_no_reset(port)
 
@@ -174,14 +180,16 @@ def capture(port, outfile):
 
         ser.reset_input_buffer()
 
-        # Request screenshot
-        print("Capturing screen...")
-        ser.write(b"S")
+        # Request the frame. "B" makes the firmware redraw the boot splash
+        # first; "S" grabs whatever is currently on the panel.
+        print("Capturing boot splash..." if boot else "Capturing screen...")
+        ser.write(b"B" if boot else b"S")
         ser.flush()
 
         marker, _ = wait_for_marker(ser, [b"RGB332:", b"OOM:"], timeout=30)
         if marker is None:
-            raise RuntimeError("No screenshot response from device.")
+            hint = " (this firmware may not have the 'B' splash command)" if boot else ""
+            raise RuntimeError(f"No screenshot response from device{hint}.")
         if marker == b"OOM:":
             info = ser.readline().decode("ascii", errors="replace").strip()
             raise RuntimeError(f"Device out of RAM: {info}")
@@ -204,9 +212,12 @@ def main():
     args = sys.argv[1:]
     port = None
     outfile = None
+    boot = False
 
     for a in args:
-        if a.upper().startswith("COM"):
+        if a.lower() in ("-b", "--boot", "--splash"):
+            boot = True
+        elif a.upper().startswith("COM"):
             port = a.upper()
         else:
             outfile = a
@@ -221,10 +232,10 @@ def main():
         print(f"  → {port}")
 
     if outfile is None:
-        outfile = os.path.join(BASE_DIR, "screenshot.png")
+        outfile = os.path.join(BASE_DIR, "boot.png" if boot else "screenshot.png")
 
     try:
-        capture(port, outfile)
+        capture(port, outfile, boot)
     except Exception as exc:
         print(f"Error: {exc}")
         sys.exit(1)
