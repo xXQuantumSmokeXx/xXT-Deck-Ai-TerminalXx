@@ -24,9 +24,9 @@ A tactical multi-function terminal for the LILYGO T-Deck ESP32-S3, consolidating
 | --- | --- | --- |
 | ![USGS screen](images/T-Deck-Display/USGS.png) | ![AEWS screen](images/T-Deck-Display/AEWS.png) | ![OUTAGES screen](images/T-Deck-Display/OUTAGES.png) |
 
-| NEWS | SYSTEM | ORACLE |
+| ORACLE | NEWS | SYSTEM |
 | --- | --- | --- |
-| ![NEWS screen](images/T-Deck-Display/NEWS.png) | ![SYSTEM screen](images/T-Deck-Display/System.png) | ![ORACLE screen](Oracle.png) |
+| ![ORACLE screen](Oracle.png) | ![NEWS screen](images/T-Deck-Display/NEWS.png) | ![SYSTEM screen](images/T-Deck-Display/System.png) |
 
 
 ## Features
