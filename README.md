@@ -144,9 +144,6 @@ each `personality_profile` means; the device only names one of the four.
 yourself: it puts this contract in front of Ollama or any OpenAI-compatible API, with the
 provider key in your own environment. The deck never carries a key.
 
-When a MayDay portal is used, the deck's optional credential headers are sent
-only if configured on the card; a backend that ignores them is fine.
-
 **Expected response body:**
 
 ```json
