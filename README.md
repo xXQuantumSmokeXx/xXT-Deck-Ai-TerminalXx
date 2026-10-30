@@ -50,7 +50,7 @@ A tactical multi-function terminal for the LILYGO T-Deck ESP32-S3, consolidating
 ## Hardware Required
 
 - LILYGO T-Deck, ESP32-S3 version
-- microSD card for WiFi, the chat endpoint URL, optional credentials and assistant slugs, personas, the crypto list, cache, field logs, and library books
+- microSD card for WiFi, the chat endpoint URL, optional assistant slugs, personas, the crypto list, cache, field logs, and library books
 - WiFi network for the chat endpoint, weather, the Quantum-Meteor feeds, and NTP sync
 
 ## Flashing
@@ -144,9 +144,8 @@ each `personality_profile` means; the device only names one of the four.
 yourself: it puts this contract in front of Ollama or any OpenAI-compatible API, with the
 provider key in your own environment. The deck never carries a key.
 
-When `portal_token.txt` / `commander_code.txt` are present, the request also
-carries `X-Portal-Token` and `X-Commander-Code`. A backend that ignores those
-headers is fine — leave both files off the card.
+When a MayDay portal is used, the deck's optional credential headers are sent
+only if configured on the card; a backend that ignores them is fine.
 
 **Expected response body:**
 
@@ -181,22 +180,6 @@ Both files are optional; a missing one leaves whatever is in NVS untouched. `per
 the card and that slot's assistant together, so the two stay in step. `setassist1` /
 `setassist2` remain as a recovery path, and a blank value clears the slot — clear both and
 the deck returns to single-endpoint mode. Deleting the files does not clear the stored slugs.
-
-### `portal_token.txt` and `commander_code.txt` — optional, MayDay portal only
-
-The reference backend (the MayDay portal) checks two credentials on every chat
-request. **If your backend doesn't, skip both files** — the device only sends
-the headers when a value is present.
-
-```txt
-SD root
-├── portal_token.txt     client token, sent as X-Portal-Token
-└── commander_code.txt   access code, sent as X-Commander-Code
-```
-
-One line each, no labels. `settoken` / `setcode` are the in-chat recovery path
-(masked prompts; blank clears). Both sit in plaintext on the card and in NVS —
-treat the card like a key.
 
 ### Personas
 
@@ -312,7 +295,6 @@ card with the 7-day sparkline. Fear & Greed stays in the status bar either way.
 | `help` | List the commands, including the recovery set |
 | `seturl` / `setwifi` | Recovery only — overrides `portal.txt` / `wifi.txt` without the card |
 | `setassist1` / `setassist2` | Recovery only — overrides `assist1.txt` / `assist2.txt` (blank clears and returns to single-endpoint mode) |
-| `setcode` / `settoken` | Recovery only — overrides `commander_code.txt` / `portal_token.txt` (masked prompts; blank clears) |
 
 Setup is meant to live on the SD card; the `set…` commands exist so a card left at home does not brick the device.
 
@@ -424,7 +406,6 @@ All SD setup files persist until you delete them. Remove them manually after con
 
 - **`wifi.txt`** — contains WiFi credentials
 - **`portal.txt`** — contains your chat endpoint URL
-- **`portal_token.txt` / `commander_code.txt`** — MayDay portal credentials, sent as headers; omit both for your own endpoint
 - **Persona files** — may contain private system prompts
 - **HTTPS** — the device does not verify certificates, so a `https://` endpoint is only as trustworthy as the network path to it
 

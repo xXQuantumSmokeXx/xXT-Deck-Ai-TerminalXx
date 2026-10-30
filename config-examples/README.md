@@ -28,8 +28,7 @@ run yourself, with the provider key in your own environment.
 
 The two-assistant backend this firmware was developed against. Copy `mayday-portal/*`
 to the card root. `assist1.txt` and `assist2.txt` carry the assistant slug, so requests
-go to `{portal.txt}/{slug}/simple`. `portal_token.txt` and `commander_code.txt` are
-optional; leave them out if your backend checks nothing.
+go to `{portal.txt}/{slug}/simple`.
 
 ## Personas (optional)
 
