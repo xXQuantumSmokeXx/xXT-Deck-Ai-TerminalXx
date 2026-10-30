@@ -36,6 +36,7 @@ captures/
 
 # Local notes that must never be committed
 *.local.md
+CLAUDE.local.md
 
 # OS/editor noise
 .DS_Store
