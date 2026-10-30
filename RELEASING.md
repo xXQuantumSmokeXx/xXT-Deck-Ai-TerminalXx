@@ -44,17 +44,23 @@ The binary is gitignored on purpose: it lives in the release, not in the tree.
 
 ## Re-releasing the same version
 
-Delete and re-push the tag. The workflow re-runs, replaces the asset and rewrites
-the title and notes:
+**Do not move a tag that already has a release.** GitHub deletes the release when
+its tag is moved or deleted. The usual run takes about two minutes.
+
+If a release is missing (for example after a tag was moved), push any commit to
+`main`. The workflow notices the newest tag has no release and rebuilds it. That
+repair path is why `main` pushes also trigger the workflow; when the release
+already exists they exit in seconds without building.
+
+If you must rebuild and replace the asset for the same tag:
 
 ```sh
-git push origin :refs/tags/vX.Y.Z
 git tag -f -a vX.Y.Z -F tagmsg.txt
-git push origin vX.Y.Z
+git push --force origin vX.Y.Z     # this deletes the existing release
+# then repair it without touching the tag again:
+git commit --allow-empty -m "Repair vX.Y.Z release"
+git push origin main
 ```
-
-To pick up a workflow change, the tag must point at a commit that contains the
-new workflow — re-point the tag as above.
 
 ## Local build (optional)
 
