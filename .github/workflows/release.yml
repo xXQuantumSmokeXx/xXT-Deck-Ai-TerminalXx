@@ -31,6 +31,9 @@ jobs:
         run: |
           set -euo pipefail
           TAG="${GITHUB_REF_NAME}"
+          # actions/checkout can materialise the tag as a lightweight ref, which
+          # hides the annotated message. Re-fetch so the title/notes are real.
+          git fetch --force --tags origin
           TITLE="$(git tag -l --format='%(contents:subject)' "$TAG")"
           [ -n "$TITLE" ] || TITLE="$TAG"
           git tag -l --format='%(contents:body)' "$TAG" > release-notes.md
@@ -38,6 +41,9 @@ jobs:
 
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "T-Deck-Ai-Terminal-${TAG}.bin" --clobber
+            if [ -s release-notes.md ]; then
+              gh release edit "$TAG" --title "$TITLE" --notes-file release-notes.md
+            fi
           elif [ -s release-notes.md ]; then
             gh release create "$TAG" "T-Deck-Ai-Terminal-${TAG}.bin" \
               --title "$TITLE" --notes-file release-notes.md
