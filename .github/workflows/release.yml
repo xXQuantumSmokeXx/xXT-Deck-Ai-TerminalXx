@@ -29,12 +29,14 @@ jobs:
             TAG="${GITHUB_REF_NAME}"
           else
             TAG="$(git describe --tags --abbrev=0)"
-            if gh release view "$TAG" >/dev/null 2>&1; then
+            STATE="$(gh release view "$TAG" --json isDraft -q .isDraft 2>/dev/null || echo missing)"
+            if [ "$STATE" = "false" ]; then
               echo "skip=true" >> "$GITHUB_OUTPUT"
-              echo "Release $TAG exists; nothing to repair."
+              echo "Release $TAG is published; nothing to repair."
               exit 0
             fi
-            echo "Repairing missing release for $TAG"
+            echo "Repairing release $TAG (state: $STATE)"
+            echo "Release \`$TAG\` state before repair: **$STATE**" >> "$GITHUB_STEP_SUMMARY"
           fi
           echo "skip=false" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
@@ -65,7 +67,9 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "T-Deck-Ai-Terminal-${TAG}.bin" --clobber
             if [ -s release-notes.md ]; then
-              gh release edit "$TAG" --title "$TITLE" --notes-file release-notes.md
+              gh release edit "$TAG" --draft=false --title "$TITLE" --notes-file release-notes.md
+            else
+              gh release edit "$TAG" --draft=false
             fi
           elif [ -s release-notes.md ]; then
             gh release create "$TAG" "T-Deck-Ai-Terminal-${TAG}.bin" \
@@ -74,3 +78,4 @@ jobs:
             gh release create "$TAG" "T-Deck-Ai-Terminal-${TAG}.bin" \
               --title "$TITLE" --generate-notes
           fi
+          gh release view "$TAG" --json url -q .url >> "$GITHUB_STEP_SUMMARY"
