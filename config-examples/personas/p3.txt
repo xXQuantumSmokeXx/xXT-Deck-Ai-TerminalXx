@@ -1,0 +1,4 @@
+ORACLE
+Reference Keeper
+profile: Tactical
+Third card, loaded only when this file exists. Allowed profiles: Standard, Tactical, Relaxed, Maximum Sass.

@@ -1,16 +1,15 @@
 T-Deck AI Terminal TODO
 =======================
-Session: 2026-10-24 (v1.2.2: splash branding, HTTP screenshot server removed)
+Session: 2026-10-30 (v1.2.3: single-endpoint chat default, examples cleanup)
 
 One list per repo: the server half of any item lives in MayDay-AI/todo.txt, and the
 device half lives here. An item that needs both says where the other half is.
 
 STATE AT END OF SESSION
-- Firmware v1.2.2 builds clean and is published. The image is ~25 KB smaller
-  than v1.2.1 (1,155,008 bytes) because the HTTP screenshot server is gone.
-- Card config verified: `personas/p1.txt` = SIX, `p2.txt` = NOVA (both `profile:
-  Relaxed`), `assist1.txt` = six, `assist2.txt` = nova, `crypto.txt` = six coins,
-  portal / token / commander-code files all present and well-formed.
+- Firmware v1.2.3 builds clean (1,155,648 bytes). It adds single-endpoint chat
+  on top of v1.2.2's splash and HTTP-server removal.
+- Chat config for the existing card is unchanged: assist1/assist2 keep the deck
+  in MayDay portal mode, and no card changes are needed to upgrade.
 - The Quantum-Meteor Worker was not modified at all this session.
 
 ───── NEXT ─────────────────────────────────────────────────────────────────────
@@ -24,6 +23,27 @@ STATE AT END OF SESSION
       a Worker route; today it is r/news + NPR.
 
 ───── COMPLETED ────────────────────────────────────────────────────────────────
+
+[x] v1.2.3 — SINGLE-ENDPOINT CHAT + EXAMPLES CLEANUP (2026-10-30).
+
+    * Endpoint mode is the default: with no assistant slug, portal.txt IS the
+      complete URL and chat.cpp posts straight to it. A slug (portal mode) keeps
+      the old {base}/{slug}/simple path, so the MayDay portal is unchanged.
+    * setassist1/setassist2 with a blank value now clears the slot; clearing the
+      last slug clears ai_target and returns the deck to endpoint mode. Setting
+      the first slug adopts it as the target, so a portal user does not sit on
+      the endpoint by accident.
+    * Removed config-examples/{openai,anthropic,groq,ollama-local}.txt: nothing
+      in src/ ever read them (they belonged to examples/AiTerminal). The folder
+      now mirrors the SD root: portal.txt, personas/, and a mayday-portal/
+      folder for the two-assistant setup, with a README that says what each
+      file is for.
+    * Added examples/endpoint/server.py, a stdlib-only reference endpoint that
+      puts the contract in front of Ollama or any OpenAI-compatible API. It runs
+      on the user's own machine; the provider key stays in their environment,
+      so nothing is hosted on the Quantum-Meteor Worker and Six/Nova stay private.
+    * .gitignore learned to track the config-examples templates, whose names
+      match the local-secret rules.
 
 [x] v1.2.2 — SPLASH BRANDING, NO HTTP SERVER (2026-10-24).
 

@@ -248,13 +248,15 @@ static void sendMessage(const String &msg) {
         pushLine("ERR: no URL. Add portal.txt to SD", COL_SYS);
         scrollToBottom(); return;
     }
-    if (s_aiTarget.isEmpty()) {
-        if (s_histCount > 0 && s_history[s_histCount-1].text == "...") s_histCount--;
-        pushLine("ERR: no assistant. Add assist1.txt to SD", COL_SYS);
-        scrollToBottom(); return;
-    }
 
-    String endpoint = base + "/" + s_aiTarget + "/simple";
+    // Two shapes, chosen by whether an assistant is configured (2026-10-30):
+    //   endpoint mode (default) - no slug means portal.txt IS the complete URL,
+    //                             so anyone can point the deck at one endpoint;
+    //   portal mode   (MayDay)  - a slug from assist1.txt/assist2.txt names the
+    //                             assistant and the URL is {base}/{slug}/simple.
+    String endpoint = s_aiTarget.isEmpty()
+                        ? base
+                        : base + "/" + s_aiTarget + "/simple";
     bool   isHttps  = base.startsWith("https://");
 
     JsonDocument reqDoc;
@@ -378,7 +380,8 @@ void chatInit(TFT_eSPI &tft) {
     s_token     = nvsGetString("portal_token", "");
     ctxClear();
     PersonaDef *p0 = personaMgrGet();
-    Serial.printf("[Chat] url='%s' assist='%s' token=%d code=%d card='%s' slot=%d loaded=%d\n",
+    Serial.printf("[Chat] mode=%s url='%s' assist='%s' token=%d code=%d card='%s' slot=%d loaded=%d\n",
+                  s_aiTarget.isEmpty() ? "endpoint" : "portal",
                   nvsGetString("server_url", "").c_str(), s_aiTarget.c_str(),
                   (int)s_token.length(), (int)s_code.length(),
                   p0->name, personaMgrCurrentSlot(), personaMgrLoadedCount());
@@ -407,6 +410,7 @@ bool chatLoop(TFT_eSPI &tft) {
             pushWrapped("", "clear    wipe the conversation", COL_SYS);
             pushWrapped("", "Everything else is configured from files on the SD card.", COL_SYS);
             pushWrapped("", "Recovery: seturl setwifi setassist1 setassist2 setcode settoken", COL_SYS);
+            pushWrapped("", "setassist blank clears it -> single-endpoint mode", COL_SYS);
             scrollToBottom(); redrawInput();
         } else if (msg == "clear") {
             s_histCount = 0; s_scrollOff = 0; ctxClear();
@@ -417,16 +421,29 @@ bool chatLoop(TFT_eSPI &tft) {
             if (msg.length() > 10 && msg[10] == ' ') {
                 slug = msg.substring(11); slug.trim();
             } else {
-                slug = readLine(idx == 0 ? "Assistant 1 slug:" : "Assistant 2 slug:");
+                slug = readLine(idx == 0 ? "Assistant 1 slug (blank=endpoint):"
+                                         : "Assistant 2 slug (blank=endpoint):");
                 slug.trim();
                 tft.fillScreen(COL_BG); drawChatTopbar();
             }
-            if (slug.length() > 0) {
-                slug.toLowerCase();
-                s_assist[idx] = slug;
-                nvsPutString(idx == 0 ? "assist1" : "assist2", slug);
-                pushLine("Assist" + String(idx + 1) + ": " + slug, COL_SYS);
+            slug.toLowerCase();
+            s_assist[idx] = slug;
+            nvsPutString(idx == 0 ? "assist1" : "assist2", slug);
+            // Blank clears the slot (2026-10-30). A slug is what selects portal mode,
+            // so with none left the target goes too and the deck is back to endpoint
+            // mode; setting the first slug adopts it as the target the same way.
+            if (slug.length() == 0 && s_assist[0].isEmpty() && s_assist[1].isEmpty()) {
+                s_aiTarget = "";
+                nvsPutString("ai_target", "");
+            } else if (s_aiTarget.isEmpty() && slug.length() > 0) {
+                s_aiTarget = slug;
+                nvsPutString("ai_target", slug);
             }
+            drawChatTopbar();
+            pushLine(slug.length() > 0
+                        ? "Assist" + String(idx + 1) + ": " + slug
+                        : "Assist" + String(idx + 1) + " cleared - endpoint mode",
+                     COL_SYS);
             scrollToBottom(); redrawInput();
         } else if (msg == "setcode") {
             // Presented on every request; compared server-side. Typed masked and never

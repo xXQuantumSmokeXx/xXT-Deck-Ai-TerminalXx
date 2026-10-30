@@ -23,6 +23,14 @@ personas/
 logs/
 oracle/
 
+# ...but the SD-card templates under config-examples/ are tracked on purpose
+!config-examples/wifi.txt
+!config-examples/portal.txt
+!config-examples/personas/
+!config-examples/personas/*.txt
+!config-examples/mayday-portal/
+!config-examples/mayday-portal/*
+
 # Local screenshot captures
 captures/
 

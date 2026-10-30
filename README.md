@@ -33,7 +33,7 @@ A tactical multi-function terminal for the LILYGO T-Deck ESP32-S3, consolidating
 
 ## Features
 
-- **AI CHAT** — persona cards carrying one of the backend's four profiles, paired with two configurable assistant slots over an HTTP backend
+- **AI CHAT** — chat over any single HTTP endpoint (one `POST`, one JSON reply), with persona cards that name one of four backend profiles and optional two-assistant slots for the MayDay portal. No API key is stored on the device.
 - **WEATHER** — Open-Meteo forecast with user-configured latitude and longitude, 5-day strip, stats row
 - **SOLAR** — NOAA/SWPC space weather via the Quantum-Meteor Worker: Kp history, 48h forecast, Bz, solar wind speed, flares, and CME data in one request
 - **CODEX** — Dual-mode hub: **MY LOGS** (field notes on SD card, add/edit/delete with trackball cursor navigation) and **LIBRARY** (KJV scripture reader and other SD-hosted books with chapter index and paragraph-reflowed text)
@@ -50,16 +50,16 @@ A tactical multi-function terminal for the LILYGO T-Deck ESP32-S3, consolidating
 ## Hardware Required
 
 - LILYGO T-Deck, ESP32-S3 version
-- microSD card for WiFi, optional backend credentials, assistant slugs, personas, the crypto list, cache, field logs, and library books
-- WiFi network for AI backend, weather, the Quantum-Meteor feeds, and NTP sync
+- microSD card for WiFi, the chat endpoint URL, optional credentials and assistant slugs, personas, the crypto list, cache, field logs, and library books
+- WiFi network for the chat endpoint, weather, the Quantum-Meteor feeds, and NTP sync
 
 ## Flashing
 
 **Option 1 — M5Launcher (SD card, no USB required):**
 
-1. Grab `T-Deck-Ai-Terminal-v1.2.2.bin` from the [latest release](https://github.com/xXQuantumSmokeXx/xXT-Deck-Ai-TerminalXx/releases/latest) and copy it to your SD card root.
+1. Grab `T-Deck-Ai-Terminal-v1.2.3.bin` from the [latest release](https://github.com/xXQuantumSmokeXx/xXT-Deck-Ai-TerminalXx/releases/latest) and copy it to your SD card root.
 2. Boot into M5Launcher on the T-Deck.
-3. Select `T-Deck-Ai-Terminal-v1.2.2.bin` and flash.
+3. Select `T-Deck-Ai-Terminal-v1.2.3.bin` and flash.
 
 **Option 2 — Build and flash from source:**
 
@@ -74,12 +74,22 @@ Or build the binary and copy it to SD for M5Launcher:
 
 ```sh
 pio run
-copy .pio\build\T-Deck\firmware.bin F:\T-Deck-Ai-Terminal-v1.2.2.bin
+copy .pio\build\T-Deck\firmware.bin F:\T-Deck-Ai-Terminal-v1.2.3.bin
 ```
 
 ## SD Card Setup
 
-The firmware reads plain text files from the SD card root on boot. All setup files are optional after initial configuration — credentials and settings are persisted to NVS — but a file present on the card always wins over the stored value.
+The firmware reads plain text files from the SD card root on boot. All setup files are optional after initial configuration — credentials and settings are persisted to NVS — but a file present on the card always wins over the stored value. Deleting a file does **not** clear its stored value; use the matching `set…` command in AI CHAT to clear it.
+
+For chat, the minimum is two files:
+
+```txt
+SD root
+├── wifi.txt
+└── portal.txt
+```
+
+Everything else on this page is optional. Ready-made templates for every file live in [`config-examples/`](config-examples), which mirrors the card root.
 
 ### `wifi.txt`
 
@@ -94,7 +104,85 @@ strawberry
 
 Read on boot, saved to NVS. Delete after confirmed working.
 
-### `portal_token.txt` and `commander_code.txt` — optional
+### `portal.txt` — chat endpoint
+
+```txt
+https://your-endpoint.example.com/chat
+```
+
+The complete URL of the chat endpoint. One line, no labels; a trailing `/` is stripped.
+The deck posts to exactly this URL, which is the default and the only chat file needed.
+Delete after confirmed working if desired — the URL is saved to NVS.
+
+**MayDay portal mode (advanced).** If the URL is a base rather than a complete endpoint,
+add `assist1.txt` (and optionally `assist2.txt`) with an assistant slug. Requests then go
+to `{portal.txt}/{slug}/simple`, which is what the MayDay portal serves. With no assist
+file there is no slug, and the URL is used as-is.
+
+### Chat API
+
+**Expected request body:**
+
+```json
+{
+  "message": "hello",
+  "agent_context": { "personality_profile": "Tactical" }
+}
+```
+
+The deck only ever sends one of these four profile names: `Standard`, `Tactical`, `Relaxed`,
+`Maximum Sass`. It never sends a free-text system prompt, and `agent_context` is optional —
+a simple endpoint may ignore the whole object and use `message` alone. The device keeps its
+own scrollback for display and does not send it.
+
+The chat call is a plain `POST` (with `Content-Type: application/json`) carrying that JSON
+and expecting `{"response": "..."}` back, so any backend that speaks that contract works —
+the MayDay portal is just the one this firmware was developed against. It also decides what
+each `personality_profile` means; the device only names one of the four.
+
+[`examples/endpoint/server.py`](examples/endpoint/server.py) is a working endpoint you run
+yourself: it puts this contract in front of Ollama or any OpenAI-compatible API, with the
+provider key in your own environment. The deck never carries a key.
+
+When `portal_token.txt` / `commander_code.txt` are present, the request also
+carries `X-Portal-Token` and `X-Commander-Code`. A backend that ignores those
+headers is fine — leave both files off the card.
+
+**Expected response body:**
+
+```json
+{ "response": "assistant reply text" }
+```
+
+`response` is required. A 200 with valid JSON but no `response` key draws an empty reply, so
+always return the key as a string. Before drawing, the deck strips `*`, `#` and a leading
+`- ` list marker (drawn as `»`), and drops triple-backtick fence lines; inline backticks,
+links and other Markdown are left as-is. The reply must arrive within 60 seconds.
+
+If the card is not at hand, the endpoint URL can also be changed from AI CHAT with `seturl`.
+
+**HTTPS caveat.** The device accepts any certificate — it does not verify TLS — so the
+endpoint's trust comes from the network you run it on. ngrok's tunnel has been unreliable
+from this board; prefer a LAN address or a host with a normal TLS stack.
+
+### `assist1.txt` and `assist2.txt` — MayDay portal only
+
+One line each: the assistant slug this device should address for persona slot 1 and slot 2.
+With these present, requests go to `{portal.txt}/{slug}/simple`; the MayDay portal serves
+`/six/*` and `/nova/*`, so those are the two values.
+
+```txt
+SD root
+├── assist1.txt   six
+└── assist2.txt   nova
+```
+
+Both files are optional; a missing one leaves whatever is in NVS untouched. `persona` switches
+the card and that slot's assistant together, so the two stay in step. `setassist1` /
+`setassist2` remain as a recovery path, and a blank value clears the slot — clear both and
+the deck returns to single-endpoint mode. Deleting the files does not clear the stored slugs.
+
+### `portal_token.txt` and `commander_code.txt` — optional, MayDay portal only
 
 The reference backend (the MayDay portal) checks two credentials on every chat
 request. **If your backend doesn't, skip both files** — the device only sends
@@ -110,72 +198,15 @@ One line each, no labels. `settoken` / `setcode` are the in-chat recovery path
 (masked prompts; blank clears). Both sit in plaintext on the card and in NVS —
 treat the card like a key.
 
-### `portal.txt`
-
-```txt
-https://your-server-url.ngrok-free.app
-```
-
-Sets the AI backend base URL. Chat requests go to `{portal_url}/<assistant>/simple`, where
-`<assistant>` is the slug from `assist1.txt` / `assist2.txt` (Slot 1 / Slot 2). Delete after
-confirmed working if desired.
-
-### `assist1.txt` and `assist2.txt`
-
-One line each: the assistant slug this device should address for persona slot 1 and slot 2.
-The portal serves `/six/*` and `/nova/*`, so those are the two values.
-
-```txt
-SD root
-├── assist1.txt   six
-└── assist2.txt   nova
-```
-
-Both files are optional; a missing one leaves whatever is in NVS untouched. `persona` switches
-the card and that slot's assistant together, so the two stay in step. `setassist1` /
-`setassist2` remain as a recovery path.
-
-### Chat API
-
-**Expected request body:**
-
-```json
-{
-  "message": "hello",
-  "agent_context": { "personality_profile": "Tactical" }
-}
-```
-
-`personality_profile` is optional and must be one of `Standard`, `Tactical`, `Relaxed` or
-`Maximum Sass`; anything else falls back to `Standard`. Other keys are ignored, and a
-free-text `system` prompt is not accepted — the backend decides what each profile means.
-The device keeps its own scrollback for display and no longer sends it.
-
-The chat call is a plain `POST {portal_url}/<assistant>/simple` carrying that
-JSON and expecting `{"response": "..."}` back, so any backend that speaks that
-contract works — the built-in portal is just the one this firmware was developed
-against. It also decides what each `personality_profile` means; the device only
-names one of the four.
-
-When `portal_token.txt` / `commander_code.txt` are present, the request also
-carries `X-Portal-Token` and `X-Commander-Code`. A backend that ignores those
-headers is fine — leave both files off the card.
-
-**Expected response body:**
-
-```json
-{ "response": "assistant reply text" }
-```
-
-If the card is not at hand, the backend URL can also be changed from AI CHAT with `seturl`.
-
 ### Personas
 
-Each card names one of the backend's four personalities. The rest of the card is kept for
-your own notes and is **not** sent to the server.
+Each card names one of the four profiles the firmware can send (`Standard`, `Tactical`,
+`Relaxed`, `Maximum Sass`). The rest of the card is kept for your own notes and is **not**
+sent to the server.
 
-**The folder is required and the names are fixed.** Create a folder called `personas` in the
-root of the SD card, then put the cards in it with exactly these names:
+**The folder and file names are fixed — the firmware does not scan for alternatives.** Create
+a folder called `personas` in the root of the SD card, then put the cards in it with exactly
+these names:
 
 ```txt
 SD root
@@ -203,7 +234,7 @@ The `profile:` line may appear anywhere in the body and is removed before the no
 stored. Allowed values are `Standard`, `Tactical`, `Relaxed` and `Maximum Sass`; anything
 else — or no line at all — is treated as `Standard`.
 
-Type `persona` in AI CHAT to cycle slots. Each card is paired with the assistant named in `assist1.txt` / `assist2.txt` for that slot, so switching the card switches the brain as well; a slot with no assistant set keeps the current one. The card supplies the display name, title and the `profile:` line sent with each turn — the note text is never sent. Typing an assistant's slug in the chat input switches that alone, without moving the card.
+Type `persona` in AI CHAT to cycle slots. In MayDay portal mode each card is paired with the assistant named in `assist1.txt` / `assist2.txt` for that slot, so switching the card switches the brain as well; in single-endpoint mode the card changes the display name and profile only. A slot with no assistant set keeps the current one. The card supplies the display name, title and the `profile:` line sent with each turn — the note text is never sent. Typing an assistant's slug in the chat input switches that alone, without moving the card (portal mode only).
 
 ### MY LOGS (CODEX)
 
@@ -266,7 +297,7 @@ card with the 7-day sparkline. Fear & Greed stays in the status bar either way.
 
 ### Module Screens
 
-- **Q / Escape / Backspace / Delete**: return home
+- **Q / Escape / Backspace / Delete**: return home. AI CHAT is the exception: Backspace edits the current line, and Q only returns home when the input is empty (Esc and Ctrl+Q always do)
 - **R**: refresh on data screens that support it
 - Trackball up/down scrolls lists where the screen has one
 
@@ -276,16 +307,19 @@ card with the 7-day sparkline. Fear & Greed stays in the status bar either way.
 | --- | --- |
 | Type + Enter | Send message |
 | Trackball up/down | Scroll chat history |
-| `persona` | Switch to the next card **and** that slot's assistant |
+| `persona` | Switch to the next card; in MayDay portal mode it also switches that slot's assistant |
 | `clear` | Clear chat history and context |
 | `help` | List the commands, including the recovery set |
 | `seturl` / `setwifi` | Recovery only — overrides `portal.txt` / `wifi.txt` without the card |
-| `setassist1` / `setassist2` | Recovery only — overrides `assist1.txt` / `assist2.txt` |
+| `setassist1` / `setassist2` | Recovery only — overrides `assist1.txt` / `assist2.txt` (blank clears and returns to single-endpoint mode) |
 | `setcode` / `settoken` | Recovery only — overrides `commander_code.txt` / `portal_token.txt` (masked prompts; blank clears) |
 
 Setup is meant to live on the SD card; the `set…` commands exist so a card left at home does not brick the device.
 
-The top bar always names the assistant being addressed (`>> SIX`). Typing a slug in the chat input switches the target and the card with it, so the header follows.
+The top bar names what the deck is talking to: `>> SIX` for a portal target, or the active
+card's name in single-endpoint mode. In portal mode, typing a slug in the chat input switches
+the target and the card with it, so the header follows. In endpoint mode there is nothing to
+switch — `persona` only changes the card's name and profile.
 
 ### CODEX — MY LOGS
 
@@ -362,6 +396,7 @@ The top bar always names the assistant being addressed (`>> SIX`). Typing a slug
 
 | Screen | Source |
 | --- | --- |
+| AI CHAT | Your endpoint from `portal.txt` — one `POST`, `{"response": ...}` back. Not the Quantum-Meteor Worker |
 | WEATHER | Open-Meteo forecast API (direct) |
 | SOLAR | Quantum-Meteor `/solar` + SWPC 48 h Kp forecast (direct) |
 | CRYPTO | CoinGecko markets + Alternative.me Fear & Greed |
@@ -375,7 +410,7 @@ The top bar always names the assistant being addressed (`>> SIX`). Typing a slug
 | CODEX LIBRARY | Local SD card plain text books |
 | SYSTEM | Local ESP32-S3 state |
 
-Six screens share one host: the **Quantum-Meteor** Cloudflare Worker
+Six of the screens share one host: the **Quantum-Meteor** Cloudflare Worker
 (`quantum-meteor.qsmoke.workers.dev`). It does the multi-source merging and
 parsing server-side, so the device gets 0.1–5 KB of finished JSON instead of
 pulling 14–50 KB feeds itself. Weather is deliberately still direct — it is one
@@ -388,11 +423,16 @@ All data screens keep their last successful fetch so they display instantly on r
 All SD setup files persist until you delete them. Remove them manually after confirming each works.
 
 - **`wifi.txt`** — contains WiFi credentials
-- **`portal.txt`** — contains your backend URL
-- **`portal_token.txt` / `commander_code.txt`** — credentials; together they are the key to the portal
+- **`portal.txt`** — contains your chat endpoint URL
+- **`portal_token.txt` / `commander_code.txt`** — MayDay portal credentials, sent as headers; omit both for your own endpoint
 - **Persona files** — may contain private system prompts
+- **HTTPS** — the device does not verify certificates, so a `https://` endpoint is only as trustworthy as the network path to it
 
 Treat the SD card as sensitive. If it is lost or accessed, any remaining setup files are readable in plain text.
+
+The device holds no provider key. If your endpoint calls a hosted model, that key lives on the
+machine running the endpoint (an environment variable for `examples/endpoint/server.py`, a
+secret for a server of your own), never on the card.
 
 Built by xXQuantum-SmokeXx, with development assistance from Codex and Claude Code.
 

@@ -1,4 +1,0 @@
-type: openai
-key: ollama
-url: http://YOUR_PC_IP:11434/v1
-model: llama3

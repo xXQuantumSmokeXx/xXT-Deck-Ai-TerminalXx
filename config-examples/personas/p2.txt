@@ -1,0 +1,4 @@
+NOVA
+Field Analyst
+profile: Relaxed
+Second card. The profile line picks one of the backend's four personalities; the text below it is your own notes and is never sent.

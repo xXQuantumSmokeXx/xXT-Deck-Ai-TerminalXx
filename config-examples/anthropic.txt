@@ -1,4 +1,0 @@
-type: anthropic
-key: sk-ant-YOUR_ANTHROPIC_KEY_HERE
-model: claude-haiku-5-5
-# url is not needed for Anthropic — the endpoint is fixed and set automatically
