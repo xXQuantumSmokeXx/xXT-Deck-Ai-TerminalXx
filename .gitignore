@@ -34,6 +34,9 @@ oracle/
 # Local screenshot captures
 captures/
 
+# Local notes that must never be committed
+*.local.md
+
 # OS/editor noise
 .DS_Store
 Thumbs.db
