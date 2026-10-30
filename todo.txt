@@ -24,6 +24,16 @@ STATE AT END OF SESSION
 
 ───── COMPLETED ────────────────────────────────────────────────────────────────
 
+[x] AUTOMATED RELEASES ON TAG PUSH (2026-10-30).
+
+    * .github/workflows/release.yml builds the firmware and publishes the
+      GitHub release (binary attached) whenever a v* tag is pushed, using the
+      repo's automatic GITHUB_TOKEN. Annotated tag first line = release title,
+      rest = release notes. No gh login, no PAT, no interactive step.
+    * This removes the per-session auth fight: `git push` over SSH is the whole
+      release process. The PAT at D:\MayDayVR\.gh_token was missing and the
+      stored gh login invalid; neither is used any more.
+
 [x] v1.2.3 — SINGLE-ENDPOINT CHAT + EXAMPLES CLEANUP (2026-10-30).
 
     * Endpoint mode is the default: with no assistant slug, portal.txt IS the

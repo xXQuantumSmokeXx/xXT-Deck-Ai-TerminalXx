@@ -1,0 +1,47 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build firmware
+        run: |
+          python -m pip install --upgrade platformio
+          pio run
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          TITLE="$(git tag -l --format='%(contents:subject)' "$TAG")"
+          [ -n "$TITLE" ] || TITLE="$TAG"
+          git tag -l --format='%(contents:body)' "$TAG" > release-notes.md
+          cp .pio/build/T-Deck/firmware.bin "T-Deck-Ai-Terminal-${TAG}.bin"
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "T-Deck-Ai-Terminal-${TAG}.bin" --clobber
+          elif [ -s release-notes.md ]; then
+            gh release create "$TAG" "T-Deck-Ai-Terminal-${TAG}.bin" \
+              --title "$TITLE" --notes-file release-notes.md
+          else
+            gh release create "$TAG" "T-Deck-Ai-Terminal-${TAG}.bin" \
+              --title "$TITLE" --generate-notes
+          fi
